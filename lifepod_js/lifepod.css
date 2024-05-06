@@ -1,0 +1,178 @@
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #f0f0f0;
+}
+
+.device {
+    width: 420px;
+    height: 420px;
+    background-color: #fff;
+    border-radius: 50%;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.middle-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+}
+
+.top-buttons {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.top-buttons button {
+    margin: 0 5px;
+    padding: 5px 10px;
+    border: none;
+    background-color: lightblue;
+    cursor: pointer;
+}
+
+.screen {
+    width: 200px;
+    height: 100px;
+    background-color: #e0e0e0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid #ccc;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+.bottom-buttons {
+    display: flex;
+    justify-content: center;
+}
+
+.bottom-buttons button {
+    margin: 0 5px;
+    padding: 5px 10px;
+    border: none;
+    cursor: pointer;
+    background-color: lightblue;
+}
+
+.side-buttons {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    justify-content: space-between;
+    width: 118%;
+}
+
+.side-buttons button {
+    width: 40px;
+    height: 40px;
+    border: none;
+    background-color: red;
+    cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+}
+
+.minus-button {
+    left: 10px;
+}
+
+.plus-button {
+    right: 10px;
+}
+
+.circular-buttons {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.circular-buttons button {
+    width: 40px;
+    height: 40px;
+    border: none;
+    background-color: #ddd;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: absolute;
+    transform: translate(-50%, -50%);
+}
+.circular-buttons button:nth-child(1) {
+    top: 20%;
+    left: 50%;
+}
+
+.circular-buttons button:nth-child(2) {
+    top: 25%;
+    left: 68%;
+}
+
+.circular-buttons button:nth-child(3) {
+    top: 40%;
+    left: 80%;
+}
+
+.circular-buttons button:nth-child(4) {
+    top: 54%;
+    left: 80%;
+}
+
+.circular-buttons button:nth-child(5) {
+    top: 69%;
+    left: 73%;
+}
+
+.circular-buttons button:nth-child(6) {
+    top: 76%;
+    left: 58%;
+}
+
+.circular-buttons button:nth-child(7) {
+    top: 76%;
+    left: 42%;
+}
+
+.circular-buttons button:nth-child(8) {
+    top: 54%;
+    left: 20%;
+}
+
+.circular-buttons button:nth-child(9) {
+    top: 69%;
+    left: 27%;
+}
+
+.circular-buttons button:nth-child(10) {
+    top: 40%;
+    left: 20%;
+}
+
+.circular-buttons button:nth-child(11) {
+    top: 25%;
+    left: 32%;
+}
