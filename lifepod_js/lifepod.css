@@ -1,178 +1,775 @@
+:root {
+    color-scheme: light;
+    --ink: #171b22;
+    --muted: #647082;
+    --page: #f6f7f9;
+    --surface: #ffffff;
+    --surface-strong: #f0f3f7;
+    --line: #d9dee7;
+    --device: #202633;
+    --device-edge: #11151d;
+    --screen: #dff6ee;
+    --screen-ink: #16281f;
+    --accent: #e3415b;
+    --accent-2: #2b7de1;
+    --accent-3: #14a67d;
+    --warning: #e0a82c;
+    --danger: #bf2e42;
+    --shadow: 0 18px 60px rgba(16, 24, 40, 0.16);
+    --radius: 8px;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    min-height: 100%;
+}
+
 body {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+    min-height: 100vh;
     margin: 0;
-    background-color: #f0f0f0;
+    background:
+        linear-gradient(135deg, rgba(227, 65, 91, 0.12), transparent 32%),
+        linear-gradient(225deg, rgba(43, 125, 225, 0.12), transparent 30%),
+        var(--page);
+    color: var(--ink);
+}
+
+button,
+input,
+select {
+    font: inherit;
+}
+
+button {
+    touch-action: manipulation;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 3px solid rgba(43, 125, 225, 0.4);
+    outline-offset: 2px;
+}
+
+.app {
+    width: min(1440px, 100%);
+    margin: 0 auto;
+    padding: max(16px, env(safe-area-inset-top)) clamp(12px, 3vw, 28px) max(24px, env(safe-area-inset-bottom));
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.topbar h1,
+.setup-copy h2,
+.panel h2 {
+    margin: 0;
+}
+
+.topbar h1 {
+    font-size: clamp(2rem, 7vw, 4rem);
+    line-height: 0.95;
+}
+
+.eyebrow,
+.status-label,
+.microcopy,
+.empty-state {
+    color: var(--muted);
+}
+
+.eyebrow {
+    margin: 0 0 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.74rem;
+    font-weight: 800;
+}
+
+.topbar-actions,
+.main-controls,
+.mode-controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.primary-button,
+.ghost-button,
+.danger-button,
+.small-button,
+.icon-button,
+.action-button,
+.pod-button,
+.tab {
+    border: 0;
+    border-radius: var(--radius);
+    min-height: 44px;
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.primary-button {
+    padding: 12px 18px;
+    background: var(--accent);
+    color: white;
+}
+
+.ghost-button,
+.small-button,
+.tab {
+    padding: 10px 14px;
+    background: var(--surface-strong);
+    color: var(--ink);
+    border: 1px solid var(--line);
+}
+
+.danger-button {
+    padding: 10px 14px;
+    background: #fff0f2;
+    color: var(--danger);
+    border: 1px solid #f3bec8;
+}
+
+.icon-button {
+    width: 44px;
+    background: var(--surface-strong);
+    color: var(--ink);
+}
+
+.setup-view {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(320px, 1.2fr);
+    gap: clamp(18px, 4vw, 42px);
+    align-items: start;
+}
+
+.setup-copy {
+    padding-top: 24px;
+}
+
+.setup-copy h2 {
+    max-width: 11ch;
+    font-size: clamp(2rem, 7vw, 4.75rem);
+    line-height: 0.96;
+}
+
+.setup-copy p:last-child {
+    max-width: 54ch;
+    color: var(--muted);
+    line-height: 1.6;
+}
+
+.setup-form,
+.panel {
+    background: rgba(255, 255, 255, 0.86);
+    border: 1px solid rgba(217, 222, 231, 0.9);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.setup-form {
+    display: grid;
+    gap: 14px;
+    padding: clamp(16px, 3vw, 26px);
+}
+
+label {
+    display: grid;
+    gap: 7px;
+    font-size: 0.86rem;
+    font-weight: 800;
+    color: #364152;
+}
+
+input,
+select {
+    width: 100%;
+    min-height: 46px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 9px 11px;
+    background: white;
+    color: var(--ink);
+}
+
+.player-setup-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.setup-player {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--card-color) 14%, white), white 58%);
+}
+
+.visa-chip {
+    width: 42px;
+    height: 30px;
+    border-radius: 7px;
+    background:
+        linear-gradient(90deg, transparent 45%, rgba(0, 0, 0, 0.12) 45% 55%, transparent 55%),
+        linear-gradient(180deg, #f4d67c, #d4a934);
+}
+
+.game-view {
+    display: grid;
+    gap: 16px;
+}
+
+.status-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.status-strip > div {
+    min-height: 72px;
+    padding: 12px;
+    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--line);
+}
+
+.status-label,
+.stat-row span,
+.asset-line,
+.ledger-entry time {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.status-strip strong {
+    display: block;
+    margin-top: 4px;
+    font-size: clamp(1.2rem, 4vw, 2rem);
+    line-height: 1;
+}
+
+.game-grid {
+    display: grid;
+    grid-template-columns: minmax(240px, 0.9fr) minmax(360px, 1.4fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.panel {
+    min-width: 0;
+    padding: 14px;
+}
+
+.panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.panel h2 {
+    font-size: 1.18rem;
+}
+
+.player-list,
+.ledger {
+    display: grid;
+    gap: 10px;
+}
+
+.player-card {
+    position: relative;
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    min-height: 156px;
+    padding: 12px 12px 12px 18px;
+    overflow: hidden;
+    text-align: left;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+}
+
+.player-card.is-active {
+    border-color: color-mix(in srgb, var(--card-color) 60%, var(--line));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--card-color) 18%, transparent);
+}
+
+.card-band {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 7px;
+    background: var(--card-color);
+}
+
+.player-card-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.player-card-head strong,
+.player-card-head small,
+.stat-row strong,
+.stat-row span,
+.asset-line {
+    overflow-wrap: anywhere;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.asset-line {
+    color: var(--muted);
+    line-height: 1.35;
+}
+
+.device-wrap {
+    display: grid;
+    justify-items: center;
 }
 
 .device {
-    width: 420px;
-    height: 420px;
-    background-color: #fff;
+    --device-size: min(88vw, 570px);
+    position: relative;
+    width: var(--device-size);
+    aspect-ratio: 1;
     border-radius: 50%;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    position: relative;
+    background:
+        radial-gradient(circle at 50% 50%, #303848 0 38%, transparent 39%),
+        radial-gradient(circle at 50% 50%, #252b38 0 56%, #151a23 57% 100%);
+    border: clamp(8px, 1.8vw, 16px) solid var(--device-edge);
+    box-shadow: var(--shadow), inset 0 0 34px rgba(255, 255, 255, 0.08);
 }
 
-.middle-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    position: relative;
-    z-index: 1;
+.function-ring {
+    position: absolute;
+    inset: 0;
 }
 
-.top-buttons {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 10px;
-}
-
-.top-buttons button {
-    margin: 0 5px;
-    padding: 5px 10px;
-    border: none;
-    background-color: lightblue;
+.ring-button {
+    --angle: calc((360deg / 11) * var(--i) - 90deg);
+    --reverse-angle: calc(90deg - (360deg / 11) * var(--i));
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: grid;
+    place-items: center;
+    width: clamp(58px, 12vw, 78px);
+    aspect-ratio: 1;
+    padding: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 50%;
+    transform: rotate(var(--angle)) translate(calc(var(--device-size) * 0.405)) rotate(var(--reverse-angle)) translate(-50%, -50%);
+    transform-origin: 0 0;
+    background: linear-gradient(180deg, #f7f9fc, #d9e0ea);
+    color: var(--ink);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.22);
     cursor: pointer;
+}
+
+.ring-button strong {
+    font-size: clamp(1rem, 3.8vw, 1.45rem);
+    line-height: 1;
+}
+
+.ring-button span {
+    max-width: 100%;
+    font-size: clamp(0.48rem, 1.7vw, 0.66rem);
+    line-height: 1;
+    overflow-wrap: anywhere;
+}
+
+.device-core {
+    position: absolute;
+    inset: 23%;
+    display: grid;
+    grid-template-rows: auto auto auto auto;
+    gap: clamp(6px, 1.8vw, 11px);
+    place-items: center;
+}
+
+/* Screen row: − [screen] + */
+.screen-row {
+    display: flex;
+    align-items: stretch;
+    gap: clamp(4px, 1vw, 7px);
+    width: 100%;
+}
+
+.side-sign {
+    flex: 0 0 auto;
+    width: clamp(36px, 7vw, 48px);
+    height: clamp(28px, 5.5vw, 36px);
+    min-height: unset;
+    padding: 0;
+    font-size: clamp(1.1rem, 3.5vw, 1.5rem);
+    border-radius: 8px;
+    align-self: center;
+}
+
+.card-slot {
+    width: min(76%, 240px);
+    min-height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--active-card-color, var(--accent)), #ffffff);
+    color: #111827;
+    font-size: clamp(0.68rem, 2vw, 0.82rem);
+    font-weight: 900;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
 }
 
 .screen {
-    width: 200px;
-    height: 100px;
-    background-color: #e0e0e0;
+    width: min(100%, 300px);
+    min-height: clamp(122px, 26vw, 160px);
+    max-height: clamp(152px, 32vw, 192px);
+    overflow: hidden;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 5px;
+    padding: 12px;
+    border-radius: var(--radius);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.35), transparent),
+        var(--screen);
+    color: var(--screen-ink);
+    border: 4px solid #101820;
+    box-shadow: inset 0 0 18px rgba(30, 81, 62, 0.22);
+    text-align: center;
+}
+
+.screen-mode {
+    font-size: 0.74rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    color: #315b4b;
+    overflow-wrap: anywhere;
+    width: 100%;
+}
+
+.screen strong {
+    width: 100%;
+    font-size: clamp(1.35rem, 5.5vw, 2.35rem);
+    line-height: 1;
+    overflow-wrap: anywhere;
+}
+
+.screen span:last-child {
+    min-height: 1.2em;
+    font-size: clamp(0.68rem, 2.5vw, 0.84rem);
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    width: 100%;
+}
+
+.pod-button {
+    min-width: 72px;
+    padding: 9px 12px;
+    background: #eff3f9;
+    color: var(--ink);
+    box-shadow: 0 5px 0 #b9c2cf;
+}
+
+.pod-button:active {
+    transform: translateY(3px);
+    box-shadow: 0 2px 0 #b9c2cf;
+}
+
+.spin {
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 5px 0 #9e2537;
+}
+
+.enter {
+    background: var(--accent-3);
+    color: white;
+    box-shadow: 0 5px 0 #087353;
+}
+
+.undo {
+    background: var(--warning);
+    color: #211a08;
+    box-shadow: 0 5px 0 #9d7418;
+}
+
+.money,
+.life {
+    background: #f9fbff;
+}
+
+.sign {
+    width: 54px;
+    min-width: 54px;
+    border-radius: 8px;
+    font-size: 1.25rem;
+}
+
+/* Spinner highlight on ring buttons */
+.ring-button.is-lit {
+    background: linear-gradient(180deg, #fff6c0, #f5d020);
+    box-shadow: 0 0 20px rgba(245, 208, 32, 0.75), 0 8px 16px rgba(0, 0, 0, 0.22);
+    transform: rotate(var(--angle)) translate(calc(var(--device-size) * 0.405)) rotate(var(--reverse-angle)) translate(-50%, -50%) scale(1.1);
+    z-index: 1;
+}
+
+/* Stat change flash on player cards */
+@keyframes stat-pop-up {
+    0%   { transform: scale(1);    color: inherit; }
+    40%  { transform: scale(1.2);  color: #14a67d; }
+    100% { transform: scale(1);    color: inherit; }
+}
+@keyframes stat-pop-down {
+    0%   { transform: scale(1);    color: inherit; }
+    40%  { transform: scale(1.15); color: #d93649; }
+    100% { transform: scale(1);    color: inherit; }
+}
+.stat-row strong.is-up   { animation: stat-pop-up   0.55s ease-out; }
+.stat-row strong.is-down { animation: stat-pop-down 0.55s ease-out; }
+
+.microcopy {
+    margin: 0;
+    line-height: 1.45;
+}
+
+.ledger-panel {
+    box-shadow: none;
+}
+
+.ledger {
+    max-height: 380px;
+    overflow: auto;
+    padding-right: 4px;
+}
+
+.ledger-entry {
+    display: grid;
+    grid-template-columns: 58px 1fr;
+    gap: 10px;
+    padding: 9px;
+    border-radius: var(--radius);
+    background: #fbfcfe;
+    border: 1px solid var(--line);
+}
+
+.ledger-entry span {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    line-height: 1.35;
+}
+
+.ledger-entry small {
+    display: block;
+    margin-top: 5px;
+    color: #445064;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.modal {
+    width: min(560px, calc(100vw - 24px));
+    border: 0;
+    border-radius: var(--radius);
+    padding: 0;
+    box-shadow: var(--shadow);
+}
+
+.modal::backdrop {
+    background: rgba(12, 16, 24, 0.54);
+}
+
+.modal form {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+}
+
+.modal menu {
     display: flex;
-    justify-content: center;
-    align-items: center;
-    border: 1px solid #ccc;
-    margin-bottom: 10px;
-    position: relative;
+    justify-content: end;
+    gap: 8px;
+    padding: 0;
+    margin: 0;
 }
 
-.bottom-buttons {
-    display: flex;
-    justify-content: center;
+.final-results {
+    display: grid;
+    gap: 10px;
 }
 
-.bottom-buttons button {
-    margin: 0 5px;
-    padding: 5px 10px;
-    border: none;
-    cursor: pointer;
-    background-color: lightblue;
+.final-card {
+    display: grid;
+    gap: 4px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: #fbfcfe;
 }
 
-.side-buttons {
+.final-card.winner {
+    border-color: color-mix(in srgb, var(--accent-3) 52%, var(--line));
+    background: color-mix(in srgb, var(--accent-3) 10%, white);
+}
+
+.final-card small {
+    color: var(--muted);
+}
+
+.is-hidden {
+    display: none !important;
+}
+
+.sr-only {
     position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    justify-content: space-between;
-    width: 118%;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
-.side-buttons button {
-    width: 40px;
-    height: 40px;
-    border: none;
-    background-color: red;
-    cursor: pointer;
-    font-size: 20px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 50%;
+@keyframes card-insert {
+    0%   { transform: translateY(-14px) scaleY(0.55); opacity: 0;   filter: brightness(1.6); }
+    60%  { transform: translateY(3px)   scaleY(1.04); opacity: 1;   filter: brightness(1.15); }
+    100% { transform: translateY(0)     scaleY(1);    opacity: 1;   filter: brightness(1); }
 }
 
-.minus-button {
-    left: 10px;
+.card-slot.is-inserting {
+    animation: card-insert 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: transform, opacity, filter;
 }
 
-.plus-button {
-    right: 10px;
+@media (max-width: 860px) {
+    .game-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
-.circular-buttons {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 500px;
-    height: 500px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+@media (max-width: 760px) {
+    .topbar,
+    .panel-heading,
+    .player-card-head,
+    .asset-row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .setup-view,
+    .game-grid,
+    .status-strip {
+        grid-template-columns: 1fr;
+    }
+
+    .setup-copy {
+        padding-top: 4px;
+    }
+
+    .setup-copy h2 {
+        max-width: 100%;
+    }
+
+    .player-setup-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .device {
+        --device-size: min(96vw, 500px);
+    }
+
+    .ring-button {
+        width: clamp(50px, 15vw, 64px);
+    }
+
+    .device-core {
+        inset: 25%;
+    }
+
+    .main-controls,
+    .mode-controls {
+        justify-content: center;
+    }
+
+    .pod-button {
+        min-width: 62px;
+        padding-inline: 9px;
+    }
+
+    .side-sign {
+        width: clamp(32px, 8vw, 42px);
+        height: clamp(24px, 5vw, 32px);
+    }
+
+    .ledger-entry {
+        grid-template-columns: 1fr;
+    }
 }
 
-.circular-buttons button {
-    width: 40px;
-    height: 40px;
-    border: none;
-    background-color: #ddd;
-    cursor: pointer;
-    font-size: 16px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    position: absolute;
-    transform: translate(-50%, -50%);
-}
-.circular-buttons button:nth-child(1) {
-    top: 20%;
-    left: 50%;
-}
+@media (max-width: 430px) {
+    .app {
+        padding-inline: 8px;
+    }
 
-.circular-buttons button:nth-child(2) {
-    top: 25%;
-    left: 68%;
-}
+    .device {
+        --device-size: min(99vw, 390px);
+        border-width: 7px;
+    }
 
-.circular-buttons button:nth-child(3) {
-    top: 40%;
-    left: 80%;
-}
+    .ring-button {
+        width: 48px;
+    }
 
-.circular-buttons button:nth-child(4) {
-    top: 54%;
-    left: 80%;
-}
+    .ring-button strong {
+        font-size: 0.95rem;
+    }
 
-.circular-buttons button:nth-child(5) {
-    top: 69%;
-    left: 73%;
-}
+    .ring-button span {
+        font-size: 0.46rem;
+    }
 
-.circular-buttons button:nth-child(6) {
-    top: 76%;
-    left: 58%;
-}
+    .device-core {
+        inset: 26%;
+        gap: 6px;
+    }
 
-.circular-buttons button:nth-child(7) {
-    top: 76%;
-    left: 42%;
-}
+    .screen {
+        min-height: 104px;
+        padding: 8px;
+    }
 
-.circular-buttons button:nth-child(8) {
-    top: 54%;
-    left: 20%;
-}
+    .pod-button {
+        min-height: 38px;
+        min-width: 52px;
+        font-size: 0.78rem;
+    }
 
-.circular-buttons button:nth-child(9) {
-    top: 69%;
-    left: 27%;
-}
-
-.circular-buttons button:nth-child(10) {
-    top: 40%;
-    left: 20%;
-}
-
-.circular-buttons button:nth-child(11) {
-    top: 25%;
-    left: 32%;
+    .side-sign {
+        width: 32px;
+        height: 24px;
+        font-size: 0.95rem;
+    }
 }

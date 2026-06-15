@@ -2,42 +2,144 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LIFEPOD</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#151820">
+    <meta name="description" content="Offline LIFEpod replacement for The Game of LIFE Twists & Turns.">
+    <title>LIFEpod Replacement</title>
+    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="lifepod.css">
 </head>
 <body>
-    <div class="device">
-        <div class="circular-buttons">
-            <button>1</button>
-            <button>2</button>
-            <button>3</button>
-            <button>4</button>
-            <button>5</button>
-            <button>6</button>
-            <button>7</button>
-            <button>8</button>
-            <button>9</button>
-            <button>10</button>
-            <button>0</button>
-        </div>
-        <div class="middle-container">
-            <div class="top-buttons">
-                <button>ENTER</button>
-                <button>SPIN</button>
-                <button>UNDO</button>
+    <div class="app" id="app">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">Twists &amp; Turns</p>
+                <h1>LIFEpod</h1>
             </div>
-            <div class="screen">Welcome</div>
-            <div class="bottom-buttons">
-                <button>$</button>
-                <button>LIFE POINTS</button>
+            <div class="topbar-actions">
+                <button class="ghost-button" id="resumeButton" type="button">Resume</button>
+                <button class="ghost-button" id="finalButton" type="button">Final</button>
+                <button class="danger-button" id="resetButton" type="button">Reset</button>
             </div>
-            <div class="side-buttons">
-                <button class="minus-button">-</button>
-                <button class="plus-button">+</button>
-            </div>
-        </div>
+        </header>
+
+        <main>
+            <!-- SETUP VIEW -->
+            <section class="setup-view" id="setupView" aria-labelledby="setupTitle">
+                <div class="setup-copy">
+                    <p class="eyebrow">New game</p>
+                    <h2 id="setupTitle">Set up the virtual Visa cards</h2>
+                    <p>Use the physical board, careers, scorecards, and LIFE cards. This app handles the bookkeeping the LIFEpod used to do.</p>
+                </div>
+                <form class="setup-form" id="setupForm">
+                    <label>
+                        Years
+                        <input id="setupYears" name="years" type="number" min="1" max="99" value="10" required>
+                    </label>
+                    <label>
+                        Players
+                        <select id="playerCount" name="playerCount">
+                            <option value="2">2 players</option>
+                            <option value="3">3 players</option>
+                            <option value="4" selected>4 players</option>
+                        </select>
+                    </label>
+                    <div class="player-setup-grid" id="playerSetupGrid"></div>
+                    <button class="primary-button" type="submit">Start LIFEpod</button>
+                </form>
+            </section>
+
+            <!-- GAME VIEW -->
+            <section class="game-view is-hidden" id="gameView" aria-label="LIFEpod game controls">
+                <div class="status-strip">
+                    <div>
+                        <span class="status-label">Years left</span>
+                        <strong id="yearsLeft">10</strong>
+                    </div>
+                    <div>
+                        <span class="status-label">Active card</span>
+                        <strong id="activeCard">Red 0001</strong>
+                    </div>
+                    <div>
+                        <span class="status-label">Last spin</span>
+                        <strong id="lastSpin">-</strong>
+                    </div>
+                </div>
+
+                <div class="game-grid">
+                    <!-- LEFT: Visa cards -->
+                    <aside class="panel player-panel" aria-labelledby="playersTitle">
+                        <div class="panel-heading">
+                            <h2 id="playersTitle">Visa Cards</h2>
+                            <button class="small-button" id="saveButton" type="button">Save</button>
+                        </div>
+                        <div class="player-list" id="playerList"></div>
+                    </aside>
+
+                    <!-- CENTRE: LIFEpod device -->
+                    <section class="device-wrap" aria-labelledby="deviceTitle">
+                        <h2 class="sr-only" id="deviceTitle">LIFEpod controller</h2>
+                        <div class="device" id="device">
+                            <div class="function-ring" id="functionRing"></div>
+                            <div class="device-core">
+                                <!-- Card slot -->
+                                <div class="card-slot" id="cardSlot">CARD IN</div>
+
+                                <!-- Screen row: − screen + -->
+                                <div class="screen-row">
+                                    <button class="pod-button sign side-sign" data-action="sign-negative" type="button" aria-label="Subtract / scroll back">−</button>
+                                    <div class="screen" id="screen" role="status" aria-live="polite">
+                                        <span class="screen-mode" id="screenMode">Ready</span>
+                                        <strong id="screenValue">Insert card</strong>
+                                        <span id="screenHint">Press SPIN to start a turn</span>
+                                    </div>
+                                    <button class="pod-button sign side-sign" data-action="sign-positive" type="button" aria-label="Add / scroll forward">+</button>
+                                </div>
+
+                                <!-- Main controls -->
+                                <div class="main-controls">
+                                    <button class="pod-button enter" data-action="enter" type="button">ENTER</button>
+                                    <button class="pod-button spin" data-action="spin" type="button">SPIN</button>
+                                    <button class="pod-button undo" data-action="undo" type="button">UNDO</button>
+                                </div>
+
+                                <!-- Mode controls -->
+                                <div class="mode-controls">
+                                    <button class="pod-button money" data-action="mode-money" type="button">$</button>
+                                    <button class="pod-button life" data-action="mode-life" type="button">LIFE POINTS</button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- LEDGER -->
+                <section class="panel ledger-panel" aria-labelledby="ledgerTitle">
+                    <div class="panel-heading">
+                        <h2 id="ledgerTitle">Ledger</h2>
+                        <button class="small-button" id="clearLedgerButton" type="button">Clear view</button>
+                    </div>
+                    <div class="ledger" id="ledger"></div>
+                </section>
+            </section>
+        </main>
     </div>
+
+    <!-- FINAL SCORING DIALOG -->
+    <dialog class="modal" id="finalDialog">
+        <form method="dialog">
+            <div class="panel-heading">
+                <h2>Final LIFE Points</h2>
+                <button class="icon-button" value="cancel" aria-label="Close final scoring" type="submit">×</button>
+            </div>
+            <div id="finalResults" class="final-results"></div>
+            <menu>
+                <button class="ghost-button" value="cancel" type="submit">Close</button>
+                <button class="primary-button" id="runFinalButton" value="default" type="button">Calculate Finals</button>
+            </menu>
+        </form>
+    </dialog>
+
     <script src="lifepod.js"></script>
 </body>
 </html>

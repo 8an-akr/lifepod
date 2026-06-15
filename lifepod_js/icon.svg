@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <rect width="512" height="512" rx="108" fill="#151820"/>
+    <circle cx="256" cy="256" r="196" fill="#273142"/>
+    <circle cx="256" cy="256" r="126" fill="#dff6ee"/>
+    <path fill="#e3415b" d="M256 68a188 188 0 0 1 179 130h-76a119 119 0 0 0-103-58 116 116 0 0 0-88 40l-53-51A188 188 0 0 1 256 68Z"/>
+    <path fill="#2b7de1" d="M444 256a188 188 0 0 1-126 177v-77a119 119 0 0 0 54-100c0-11-2-22-5-33h75c1 11 2 22 2 33Z"/>
+    <path fill="#14a67d" d="M256 444A188 188 0 0 1 78 317h76a119 119 0 0 0 102 55c12 0 24-2 35-5v75c-11 1-23 2-35 2Z"/>
+    <path fill="#e0a82c" d="M68 256a188 188 0 0 1 36-110l53 51a118 118 0 0 0-18 59c0 12 2 24 5 35H70c-1-11-2-23-2-35Z"/>
+    <text x="256" y="282" text-anchor="middle" font-family="Arial, sans-serif" font-size="86" font-weight="800" fill="#16281f">LIFE</text>
+</svg>
