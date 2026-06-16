@@ -32,12 +32,12 @@
         { key: "lottery",  number: "1",  label: "LOTTERY"  },
         { key: "chance",   number: "2",  label: "CHANCE"   },
         { key: "marriage", number: "3",  label: "MARRIAGE" },
-        { key: "digit-4",  number: "4",  label: "4"        },
+        { key: "digit-4",  number: "4",  label: ""         },
         { key: "house",    number: "5",  label: "HOUSE"    },
         { key: "car",      number: "6",  label: "CAR"      },
         { key: "baby",     number: "7",  label: "BABY"     },
         { key: "volume",   number: "8",  label: "VOLUME"   },
-        { key: "digit-9",  number: "9",  label: "9"        },
+        { key: "digit-9",  number: "9",  label: ""         },
         { key: "years",    number: "10", label: "YEARS"    }
     ];
 
@@ -48,36 +48,48 @@
 
     // ─── DOM references ───────────────────────────────────────────────────────
 
+    const DEFAULT_PLAYERS = [
+        { name: "Player 1", career: "" },
+        { name: "Player 2", career: "" },
+        { name: "Player 3", career: "" },
+        { name: "Player 4", career: "" }
+    ];
+
     const dom = {
-        setupView:        document.querySelector("#setupView"),
-        gameView:         document.querySelector("#gameView"),
-        setupForm:        document.querySelector("#setupForm"),
-        playerCount:      document.querySelector("#playerCount"),
-        setupYears:       document.querySelector("#setupYears"),
-        playerSetupGrid:  document.querySelector("#playerSetupGrid"),
-        resumeButton:     document.querySelector("#resumeButton"),
-        resetButton:      document.querySelector("#resetButton"),
-        saveButton:       document.querySelector("#saveButton"),
-        yearsLeft:        document.querySelector("#yearsLeft"),
-        activeCard:       document.querySelector("#activeCard"),
-        lastSpin:         document.querySelector("#lastSpin"),
-        playerList:       document.querySelector("#playerList"),
-        functionRing:     document.querySelector("#functionRing"),
-        cardSlot:         document.querySelector("#cardSlot"),
-        screenMode:       document.querySelector("#screenMode"),
-        screenValue:      document.querySelector("#screenValue"),
-        screenHint:       document.querySelector("#screenHint"),
-        ledger:           document.querySelector("#ledger"),
-        clearLedgerButton:document.querySelector("#clearLedgerButton"),
-        finalButton:      document.querySelector("#finalButton"),
-        finalDialog:      document.querySelector("#finalDialog"),
-        finalResults:     document.querySelector("#finalResults"),
-        runFinalButton:   document.querySelector("#runFinalButton")
+        gameView:          document.querySelector("#gameView"),
+        resetButton:       document.querySelector("#resetButton"),
+        saveButton:        document.querySelector("#saveButton"),
+        yearsLeft:         document.querySelector("#yearsLeft"),
+        activeCard:        document.querySelector("#activeCard"),
+        lastSpin:          document.querySelector("#lastSpin"),
+        playerList:        document.querySelector("#playerList"),
+        functionRing:      document.querySelector("#functionRing"),
+        cardSlot:          document.querySelector("#cardSlot"),
+        screenMode:        document.querySelector("#screenMode"),
+        screenValue:       document.querySelector("#screenValue"),
+        screenHint:        document.querySelector("#screenHint"),
+        lcdHouses:         document.querySelector("#lcdHouses"),
+        lcdCars:           document.querySelector("#lcdCars"),
+        lcdBabies:         document.querySelector("#lcdBabies"),
+        lcdMoney:          document.querySelector("#lcdMoney"),
+        lcdMarried:        document.querySelector("#lcdMarried"),
+        lcdLife:           document.querySelector("#lcdLife"),
+        lcdYears:          document.querySelector("#lcdYears"),
+        ledger:            document.querySelector("#ledger"),
+        clearLedgerButton: document.querySelector("#clearLedgerButton"),
+        finalDialog:       document.querySelector("#finalDialog"),
+        finalResults:      document.querySelector("#finalResults"),
+        playerCountSelect: document.querySelector("#playerCountSelect"),
+        confirmDialog:     document.querySelector("#confirmDialog"),
+        confirmMessage:    document.querySelector("#confirmMessage"),
+        confirmYes:        document.querySelector("#confirmYes"),
+        confirmNo:         document.querySelector("#confirmNo")
     };
 
     // ─── Module-level state ───────────────────────────────────────────────────
 
-    let state = normalizeState(loadState());
+    let state = normalizeState(loadState())
+             ?? createGame({ years: 10, players: DEFAULT_PLAYERS });
     let ledgerFilterCleared = false;
     let isAnimating = false; // blocks all input while spinner/chance/lottery animates
     let litButtonIndex = null; // ring button currently held lit after a spin/chance land
@@ -308,10 +320,16 @@
 
     function normalizeState(s) {
         if (!s) return null;
+        s.activePlayerIndex ??= 0;
+        s.turnsThisYear     ??= 0;
+        s.lotteryPot        ??= 10000;
+        s.finalRatio        ??= randomInt(80, 120);
+        s.finalCalculated   ??= false;
         s.input    ??= { mode: "ready", sign: 1, buffer: "", subMode: null, index: 0 };
         s.input.subMode ??= null;
         s.input.index   ??= 0;
         s.players?.forEach((p, i) => {
+            p.id             ??= cryptoId();
             p.order          ??= i + 1;
             p.cars           ??= [];
             p.houses         ??= [];
@@ -399,8 +417,9 @@
     function handleUndo() {
         if (!state) return;
         clearLitButtons();
-        const selModes = ["car-select","house-select","car-buyorsell","house-buyorsell","baby-select","lottery-pending"];
+        const selModes = ["car-select","house-select","car-buyorsell","house-buyorsell","lottery-pending"];
         if (selModes.includes(state.input.mode)) {
+            if (state.activePlayerIndex == null) state.activePlayerIndex = 0;
             clearInput();
             setScreen("Ready", "Cancelled", "Press SPIN or use the ring buttons");
             renderScreen();
@@ -421,7 +440,10 @@
 
     // ─── Player helpers ───────────────────────────────────────────────────────
 
-    function activePlayer() { return state?.players[state.activePlayerIndex] ?? null; }
+    function activePlayer() {
+        if (!state || state.activePlayerIndex == null) return null;
+        return state.players[state.activePlayerIndex] ?? null;
+    }
     function getPlayer(id)  { return state.players.find((p) => p.id === id); }
 
     // ─── Formatting ───────────────────────────────────────────────────────────
@@ -463,7 +485,10 @@
             renderScreen();
             return;
         }
-        if (state.input.mode === "years" && state.input.buffer.length >= 2) return;
+        if (state.input.mode === "years"  && state.input.buffer.length >= 2)  return;
+        if (state.input.mode === "money"  && state.input.buffer.length >= 9)  return;
+        if (state.input.mode === "salary" && state.input.buffer.length >= 7)  return;
+        if (state.input.mode === "life"   && state.input.buffer.length >= 8)  return;
         state.input.buffer = `${state.input.buffer}${digit}`.replace(/^0+(?=\d)/, "");
         const sign  = state.input.sign < 0 ? "−" : "+";
         const val   = state.input.buffer || "0";
@@ -481,19 +506,22 @@
     }
 
     function confirmInput() {
-        if (!state) return;
+        if (!state || isAnimating) return;
         const { mode, sign, buffer } = state.input;
         const amount = Number(buffer || 0);
 
         if (mode === "car-select")       { confirmCarSelect();   return; }
         if (mode === "house-select")     { confirmHouseSelect(); return; }
-        if (mode === "baby-select")      { confirmBabySelect();  return; }
         if (mode === "car-buyorsell")    { playSound("error"); return; }
         if (mode === "house-buyorsell")  { playSound("error"); return; }
         if (mode === "lottery-pending")  { playSound("error"); return; }
 
         if (!["money","life","salary","years"].includes(mode)) {
             setScreen("Enter", "Choose action", "Press a function button first");
+            renderScreen(); playSound("error"); return;
+        }
+        if (["money","life","salary"].includes(mode) && !activePlayer()) {
+            setScreen("No card", "Tap your card first", "Insert a Visa card first");
             renderScreen(); playSound("error"); return;
         }
         if (!amount && mode !== "years") {
@@ -547,13 +575,6 @@
         if (mode === "house-buyorsell")  { beginHouseSelect(dir === 1 ? "buy" : "sell"); return; }
         if (mode === "car-select")       { scrollCarSelect(dir);   return; }
         if (mode === "house-select")     { scrollHouseSelect(dir); return; }
-        if (mode === "baby-select")      { scrollBabySelect(dir);  return; }
-        if (mode === "lottery-pending")  {
-            if (dir === 1)  awardLottery(activePlayer().id);
-            else            growLottery();
-            return;
-        }
-
         // Normal: set sign for digit entry
         state.input.sign = dir;
         setScreen(inputModeLabel(), dir < 0 ? "−" : "+", "Enter digits, then ENTER");
@@ -572,8 +593,17 @@
 
     function spinTurn() {
         if (isAnimating) return;
+        if (state?.input.mode === "lottery-pending") { growLottery(); return; }
+        // Cancel any open buy/sell selection — lets the player abandon and just spin
+        if (state && ["car-select","house-select","car-buyorsell","house-buyorsell"].includes(state.input.mode)) {
+            clearInput();
+        }
         if (!state || state.yearsLeft <= 0) {
-            setScreen("Game over", "Final scoring", "Press Final to reveal totals");
+            setScreen("Game over", "Final scoring", "Insert any card to see final scores");
+            renderScreen(); playSound("error"); return;
+        }
+        if (!activePlayer()) {
+            setScreen("No card", "Tap your card first", "Insert your Visa card to spin");
             renderScreen(); playSound("error"); return;
         }
 
@@ -599,7 +629,7 @@
                 p.money += salaryPaid;
 
                 // 3. Recurring LIFE Points: cars + houses + marriage + children
-                const carLife      = p.cars.reduce((s, c) => s + CAR_TYPES[c.type].lifePerTurn, 0);
+                const carLife      = p.cars.reduce((s, c) => s + (CAR_TYPES[c.type]?.lifePerTurn ?? 0), 0);
                 const houseLife    = p.houses.length * 100;
                 const marriageLife = p.married ? 1500 : 0;
                 const childLife    = p.children * 350;
@@ -610,7 +640,7 @@
                 ageHouses(p);
 
                 // 5. Move bonus from cars
-                const moveBonus = p.cars.reduce((s, c) => s + CAR_TYPES[c.type].moveBonus, 0);
+                const moveBonus = p.cars.reduce((s, c) => s + (CAR_TYPES[c.type]?.moveBonus ?? 0), 0);
                 const totalMove = baseSpin + moveBonus;
                 state.lastSpin  = { playerId: p.id, base: baseSpin, bonus: moveBonus, total: totalMove };
 
@@ -634,6 +664,12 @@
                 setScreen("SPIN", `${totalMove} spaces`, hint);
             });
             playSound("money-add");
+            if (state.yearsLeft === 0) {
+                setTimeout(() => {
+                    setScreen("GAME OVER", "All rounds done", "Tap any card to see final scores");
+                    renderScreen();
+                }, 900);
+            }
         }, "tick");
     }
 
@@ -690,30 +726,48 @@
 
     function lotterySpin() {
         if (isAnimating) return;
+        // Cancel any open buy/sell selection before starting the lottery
+        if (state && ["car-select","house-select","car-buyorsell","house-buyorsell"].includes(state.input.mode)) {
+            clearInput();
+        }
         const winning   = randomInt(1, 10);
         const targetPos = SPIN_INDICES.indexOf(winning);
 
-        playSound("lottery-sweep"); // background wheel sound during animation
+        // Eject card display immediately so nobody holds the device during the spin
+        dom.cardSlot.textContent = "LOTTERY";
+        dom.cardSlot.style.removeProperty("--active-card-color");
+        dom.activeCard.textContent  = "Lottery";
+        dom.screenMode.textContent  = "LOTTERY";
+        dom.screenValue.textContent = "Spinning…";
+        dom.screenHint.textContent  = "Watch the wheel · Tap card to claim";
+        dom.lcdHouses.textContent = dom.lcdCars.textContent = dom.lcdBabies.textContent = "–";
+        dom.lcdMoney.textContent  = dom.lcdLife.textContent = "–––––";
+        dom.lcdMarried.textContent = "–";
+
+        playSound("lottery-sweep");
 
         animateOptions(SPIN_INDICES, targetPos, () => {
             const pot = state.lotteryPot;
             commit("Lottery", `Winning number ${winning}; pot ${formatMoney(pot)}`, () => {
                 state.input = { mode: "lottery-pending", sign: 1, buffer: "", subMode: null, index: 0 };
-                setScreen("Lottery", String(winning), `${formatMoney(pot)} pot · + award · − skip`);
+                state.activePlayerIndex = null;
+                setScreen("LOTTERY", String(winning), `${formatMoney(pot)} · Tap card to claim · SPIN if no winner`);
             });
         }, "tick");
     }
 
-    function awardLottery(playerId) {
-        const winner = getPlayer(playerId);
+    function awardLottery(playerIndex) {
+        const winner = state.players[playerIndex];
         if (!winner) return;
         const pot = state.lotteryPot;
         commit("Lottery Win", `${winner.name} won ${formatMoney(pot)}`, () => {
-            const w = getPlayer(playerId);
-            w.money     += pot;
+            const w = state.players[playerIndex];
+            if (!w) return;
+            w.money += pot;
             state.lotteryPot = 10000;
+            state.activePlayerIndex = playerIndex;
             clearInput();
-            setScreen("Lottery", w.name, `${formatMoney(pot)} paid!`);
+            setScreen("LOTTERY", w.name, `${formatMoney(pot)} paid!`);
         });
         playSound("lottery-win");
     }
@@ -733,7 +787,9 @@
     // Already married: other players give $500 anniversary gift; +3,000 LIFE once.
 
     function marriage() {
-        const wasMarried = activePlayer().married;
+        const p0 = activePlayer();
+        if (!p0) return;
+        const wasMarried = p0.married;
         commit("Marriage", wasMarried ? "Anniversary" : "Wedding", () => {
             const p    = activePlayer();
             const gift = wasMarried ? 500 : 1000;
@@ -749,34 +805,29 @@
 
     // ─── BABY (ring 7) ────────────────────────────────────────────────────────
     //
-    // Enters a selection mode: + / − toggle between "1 Child" and "Twins", ENTER confirms.
-    // Used when landing on Baby Boy, Baby Girl, or Twins spaces.
-    // For "Try for Baby" spaces, player presses CHANCE (2) first, then BABY if result ≥ 1.
+    // Uses the CHANCE animation (ring 0/1/2): 0 = no baby, 1 = one baby, 2 = twins.
+    // Other players pay $500 per baby as a gift.
 
     function enterBabyMode() {
-        state.input = { mode: "baby-select", sign: 1, buffer: "", subMode: null, index: 0 };
-        showBabyOption(0);
-    }
-
-    function showBabyOption(index) {
-        const options = ["1 Child  +350 LIFE", "Twins  +700 LIFE"];
-        setScreen("BABY", options[index], "+/− switch · ENTER confirm · UNDO cancel");
-        renderScreen();
-    }
-
-    function scrollBabySelect(dir) {
-        state.input.index = (state.input.index + dir + 2) % 2;
-        showBabyOption(state.input.index);
-    }
-
-    function confirmBabySelect() {
-        const count = state.input.index === 1 ? 2 : 1;
-        clearInput();
-        addBaby(count);
+        const p = activePlayer();
+        if (!p || isAnimating) return;
+        const roll      = randomInt(0, 2);
+        const targetPos = CHANCE_INDICES.indexOf(roll);
+        animateOptions(CHANCE_INDICES, targetPos, () => {
+            if (roll === 0) {
+                commit("Baby", "No baby this time", () => {
+                    setScreen("BABY", "0", "Better luck next time");
+                });
+                playSound("money-sub");
+            } else {
+                addBaby(roll);
+            }
+        }, "tick");
     }
 
     function addBaby(count) {
         const p = activePlayer();
+        if (!p) return;
         const yearlyRemaining = 2 - (p.babiesThisYear ?? 0);
         if (yearlyRemaining <= 0) {
             setScreen("Baby", "Year limit", "Max 2 babies per year");
@@ -819,6 +870,7 @@
 
     function beginCarSelect(subMode) {
         const p    = activePlayer();
+        if (!p) return;
         const list = subMode === "sell"
             ? CAR_LIST.filter((c) => p.cars.some((oc) => oc.type === c.id))
             : CAR_LIST;
@@ -832,6 +884,7 @@
 
     function showCarOption(subMode, index) {
         const p    = activePlayer();
+        if (!p) return;
         const list = subMode === "sell"
             ? CAR_LIST.filter((c) => p.cars.some((oc) => oc.type === c.id))
             : CAR_LIST;
@@ -845,6 +898,7 @@
 
     function scrollCarSelect(dir) {
         const p    = activePlayer();
+        if (!p) return;
         const { subMode } = state.input;
         const list = subMode === "sell"
             ? CAR_LIST.filter((c) => p.cars.some((oc) => oc.type === c.id))
@@ -854,40 +908,46 @@
     }
 
     function confirmCarSelect() {
-        const p       = activePlayer();
+        const p           = activePlayer();
+        if (!p) return;
         const { subMode } = state.input;
-        const list    = subMode === "sell"
+        const list        = subMode === "sell"
             ? CAR_LIST.filter((c) => p.cars.some((oc) => oc.type === c.id))
             : CAR_LIST;
         const car = list[state.input.index];
         if (!car) return;
-        clearInput();
         if (subMode === "buy") {
             if (p.cars.some((oc) => oc.type === car.id)) {
-                setScreen("CAR", "Already owned", `You already have the ${car.name}`);
+                setScreen("CAR", "Already owned", `You already have the ${car.name} · − to scroll`);
                 renderScreen(); playSound("error"); return;
             }
+            clearInput();
             commit("Buy Car", `Bought ${car.name} for ${formatMoney(car.cost)}`, () => {
                 const pl = activePlayer();
+                if (!pl) return;
                 pl.money -= car.cost;
                 pl.cars.push({ id: cryptoId(), type: car.id, value: car.cost, yearsOld: 0 });
                 setScreen("CAR", car.name, `${formatMoney(car.cost)} charged`);
             });
             playSound("buy");
         } else {
+            clearInput();
             sellCar(car.id);
         }
     }
 
     function sellCar(type) {
         const p   = activePlayer();
+        if (!p) return;
         const car = p.cars.find((c) => c.type === type);
         if (!car) { setScreen("CAR","Not owned",""); renderScreen(); playSound("error"); return; }
         commit("Sell Car", `Sold ${CAR_TYPES[type].name} for ${formatMoney(car.value)}`, () => {
-            const pl   = activePlayer();
+            const pl = activePlayer();
+            if (!pl) return;
             const sold = pl.cars.find((c) => c.type === type);
-            pl.money  += sold.value;
-            pl.cars    = pl.cars.filter((c) => c.type !== type);
+            if (!sold) return;
+            pl.money += sold.value;
+            pl.cars   = pl.cars.filter((c) => c.type !== type);
             setScreen("CAR", formatMoney(sold.value), "Sale paid to card");
         });
         playSound("sell");
@@ -907,6 +967,7 @@
 
     function beginHouseSelect(subMode) {
         const p    = activePlayer();
+        if (!p) return;
         const list = subMode === "sell"
             ? HOUSE_LIST.filter((h) => p.houses.some((oh) => oh.type === h.id))
             : HOUSE_LIST;
@@ -920,6 +981,7 @@
 
     function showHouseOption(subMode, index) {
         const p    = activePlayer();
+        if (!p) return;
         const list = subMode === "sell"
             ? HOUSE_LIST.filter((h) => p.houses.some((oh) => oh.type === h.id))
             : HOUSE_LIST;
@@ -933,6 +995,7 @@
 
     function scrollHouseSelect(dir) {
         const p    = activePlayer();
+        if (!p) return;
         const { subMode } = state.input;
         const list = subMode === "sell"
             ? HOUSE_LIST.filter((h) => p.houses.some((oh) => oh.type === h.id))
@@ -942,38 +1005,44 @@
     }
 
     function confirmHouseSelect() {
-        const p       = activePlayer();
+        const p           = activePlayer();
+        if (!p) return;
         const { subMode } = state.input;
-        const list    = subMode === "sell"
+        const list        = subMode === "sell"
             ? HOUSE_LIST.filter((h) => p.houses.some((oh) => oh.type === h.id))
             : HOUSE_LIST;
         const house = list[state.input.index];
         if (!house) return;
-        clearInput();
         if (subMode === "buy") {
             if (p.houses.some((oh) => oh.type === house.id)) {
-                setScreen("HOUSE", "Already owned", `You already have the ${house.name}`);
+                setScreen("HOUSE", "Already owned", `You already have the ${house.name} · − to scroll`);
                 renderScreen(); playSound("error"); return;
             }
+            clearInput();
             commit("Buy House", `Bought ${house.name} for ${formatMoney(house.cost)}`, () => {
                 const pl = activePlayer();
+                if (!pl) return;
                 pl.money -= house.cost;
                 pl.houses.push({ id: cryptoId(), type: house.id, value: house.cost, yearsOwned: 0 });
                 setScreen("HOUSE", house.name, `${formatMoney(house.cost)} charged`);
             });
             playSound("buy");
         } else {
+            clearInput();
             sellHouse(house.id);
         }
     }
 
     function sellHouse(type) {
         const p     = activePlayer();
+        if (!p) return;
         const house = p.houses.find((h) => h.type === type);
         if (!house) { setScreen("HOUSE","Not owned",""); renderScreen(); playSound("error"); return; }
         commit("Sell House", `Sold ${HOUSE_TYPES[type].name} for ${formatMoney(house.value)}`, () => {
-            const pl   = activePlayer();
+            const pl = activePlayer();
+            if (!pl) return;
             const sold = pl.houses.find((h) => h.type === type);
+            if (!sold) return;
             pl.money  += sold.value;
             pl.houses  = pl.houses.filter((h) => h.type !== type);
             setScreen("HOUSE", formatMoney(sold.value), "Sale paid to card");
@@ -996,23 +1065,27 @@
                 const netWorth   = p.money + carValue + houseValue;
                 const converted  = Math.round(netWorth / state.finalRatio);
                 p.final = {
-                    ratio:           state.finalRatio,
                     carValue, houseValue, netWorth,
                     convertedLife:   converted,
                     totalLifePoints: p.lifePoints + converted
                 };
             });
+            const ranked = [...state.players].sort((a, b) => b.final.totalLifePoints - a.final.totalLifePoints);
+            ranked.forEach((p, i) => { p.final.rank = i + 1; });
             state.finalCalculated = true;
-            setScreen("Final", "Totals ready", "Compare LIFE Points — most wins!");
+            setScreen("WINNER", ranked[0].name, `${formatNumber(ranked[0].final.totalLifePoints)} LIFE Points — Game over!`);
         });
-        renderFinalResults();
-        playSound("lottery-win");
     }
 
     // ─── Ring button handler ──────────────────────────────────────────────────
 
     function handlePodKey(key) {
         if (!state || isAnimating) return;
+        const needsPlayer = ["salary", "marriage", "house", "car", "baby"];
+        if (!activePlayer() && needsPlayer.includes(key)) {
+            setScreen("No card", "Tap your card first", "Insert a Visa card to use this function");
+            renderScreen(); playSound("error"); return;
+        }
 
         // While mid digit-entry, number keys keep appending digits
         if (["money","life","salary","years"].includes(state.input.mode)) {
@@ -1040,13 +1113,8 @@
     // ─── Render ───────────────────────────────────────────────────────────────
 
     function render() {
-        if (!state) {
-            dom.setupView.classList.remove("is-hidden");
-            dom.gameView.classList.add("is-hidden");
-            return;
-        }
-        dom.setupView.classList.add("is-hidden");
-        dom.gameView.classList.remove("is-hidden");
+        if (!state) state = createGame({ years: 10, players: DEFAULT_PLAYERS });
+        if (dom.playerCountSelect) dom.playerCountSelect.value = String(state.players.length);
         renderStatus();
         renderPlayers();
         renderLedger();
@@ -1056,11 +1124,17 @@
 
     function renderStatus() {
         const p = activePlayer();
-        dom.yearsLeft.textContent  = state.yearsLeft;
-        dom.activeCard.textContent = `${p.colorName} ${p.card}`;
-        dom.cardSlot.textContent   = `${p.colorName.toUpperCase()} ${p.card}`;
-        dom.cardSlot.style.setProperty("--active-card-color", VISA_COLORS.find((c) => c.id === p.color).hex);
-        dom.lastSpin.textContent   = state.lastSpin
+        dom.yearsLeft.textContent = state.yearsLeft;
+        if (p) {
+            dom.activeCard.textContent = `${p.colorName} ${p.card}`;
+            dom.cardSlot.textContent   = `${p.colorName.toUpperCase()} ${p.card}`;
+            dom.cardSlot.style.setProperty("--active-card-color", VISA_COLORS.find((c) => c.id === p.color).hex);
+        } else {
+            dom.activeCard.textContent = "No card";
+            dom.cardSlot.textContent   = "NO CARD";
+            dom.cardSlot.style.removeProperty("--active-card-color");
+        }
+        dom.lastSpin.textContent = state.lastSpin
             ? `${state.lastSpin.total} (${state.lastSpin.base}+${state.lastSpin.bonus})`
             : "−";
     }
@@ -1069,10 +1143,16 @@
         const cur = activePlayer();
         dom.playerList.innerHTML = state.players.map((p, i) => {
             const color    = VISA_COLORS.find((c) => c.id === p.color);
+            if (!color) return "";
             const carVal   = p.cars.reduce((s, c) => s + c.value, 0);
             const houseVal = p.houses.reduce((s, h) => s + h.value, 0);
+            const isActive = cur && p.id === cur.id;
+            const isWinner = p.final?.rank === 1;
+            const finalHtml = p.final
+                ? `<span class="stat-row final-stat-row"><span>#${p.final.rank} Final LIFE</span><strong class="final-pts">${formatNumber(p.final.totalLifePoints)}</strong></span>`
+                : "";
             return `
-                <button class="player-card${p.id === cur.id ? " is-active" : ""}" data-player-index="${i}" style="--card-color: ${color.hex}" type="button">
+                <button class="player-card${isActive ? " is-active" : ""}${isWinner ? " is-winner-card" : ""}" data-player-index="${i}" style="--card-color: ${color.hex}" type="button">
                     <span class="card-band"></span>
                     <span class="player-card-head">
                         <strong>${escapeHtml(p.name)}</strong>
@@ -1081,7 +1161,8 @@
                     <span class="stat-row"><span>Money</span><strong data-stat="money">${formatMoney(p.money)}</strong></span>
                     <span class="stat-row"><span>LIFE</span><strong data-stat="life">${formatNumber(p.lifePoints)}</strong></span>
                     <span class="stat-row"><span>Salary</span><strong>${formatMoney(p.salary)}</strong></span>
-                    <span class="asset-line">${p.children} kids · ${p.cars.length} cars${carVal ? " " + formatMoney(carVal) : ""} · ${p.houses.length} houses${houseVal ? " " + formatMoney(houseVal) : ""}</span>
+                    <span class="asset-line">${p.married ? "♦ married · " : ""}${p.children} kids · ${p.cars.length} cars${carVal ? " " + formatMoney(carVal) : ""} · ${p.houses.length} houses${houseVal ? " " + formatMoney(houseVal) : ""}</span>
+                    ${finalHtml}
                 </button>
             `;
         }).join("");
@@ -1089,9 +1170,44 @@
 
     function renderScreen() {
         if (!state) return;
+        // Banner
         dom.screenMode.textContent  = state.screen.mode;
         dom.screenValue.textContent = state.screen.value;
         dom.screenHint.textContent  = state.screen.hint;
+
+        // LCD stat rows — always show active player's live stats
+        const p   = activePlayer();
+        const inp = state.input.mode;
+
+        if (!p) {
+            // No card inserted (e.g. lottery awaiting)
+            dom.lcdHouses.textContent  = "–";
+            dom.lcdCars.textContent    = "–";
+            dom.lcdBabies.textContent  = "–";
+            dom.lcdMoney.textContent   = "–––––––";
+            dom.lcdMarried.textContent = "–";
+            dom.lcdLife.textContent    = "–––––––";
+            dom.lcdYears.textContent   = state.yearsLeft;
+            return;
+        }
+
+        dom.lcdHouses.textContent  = p.houses.length;
+        dom.lcdCars.textContent    = p.cars.length;
+        dom.lcdBabies.textContent  = p.children;
+        dom.lcdMarried.textContent = p.married ? "♦" : "○";
+        dom.lcdYears.textContent   = state.yearsLeft;
+
+        // During digit entry, show input buffer in the relevant slot
+        if (inp === "money" || inp === "salary") {
+            dom.lcdMoney.textContent = state.screen.value || formatMoney(p.money);
+            dom.lcdLife.textContent  = formatNumber(p.lifePoints);
+        } else if (inp === "life") {
+            dom.lcdMoney.textContent = formatMoney(p.money);
+            dom.lcdLife.textContent  = state.screen.value || formatNumber(p.lifePoints);
+        } else {
+            dom.lcdMoney.textContent = formatMoney(p.money);
+            dom.lcdLife.textContent  = formatNumber(p.lifePoints);
+        }
     }
 
     function renderLedger() {
@@ -1129,37 +1245,39 @@
     function renderFinalResults() {
         if (!state) return;
         if (!state.finalCalculated) {
-            dom.finalResults.innerHTML = `<p class="microcopy">Final scoring uses a hidden conversion ratio ($80–$120 per LIFE Point) set at game start. Press Calculate Finals after everyone has completed their last turn.</p>`;
+            dom.finalResults.innerHTML = `<p class="microcopy">Final scores will appear here after the last year ends.</p>`;
             return;
         }
-        const sorted = [...state.players].sort((a, b) => b.final.totalLifePoints - a.final.totalLifePoints);
-        dom.finalResults.innerHTML = `
-            <p class="microcopy">Hidden ratio this game: ${formatMoney(state.finalRatio)} per LIFE Point.</p>
-            ${sorted.map((p, i) => `
-                <article class="final-card${i === 0 ? " winner" : ""}">
-                    <strong>${i === 0 ? "Winner: " : ""}${escapeHtml(p.name)}</strong>
-                    <span>Total LIFE Points: ${formatNumber(p.final.totalLifePoints)}</span>
-                    <small>Base ${formatNumber(p.lifePoints)} LIFE + ${formatNumber(p.final.convertedLife)} converted from ${formatMoney(p.final.netWorth)}</small>
+        const sorted  = [...state.players].sort((a, b) => b.final.totalLifePoints - a.final.totalLifePoints);
+        const cardGap = 1.8; // seconds between each player's card appearing
+        const rowStep = 0.22; // seconds between each row within a card
+
+        dom.finalResults.innerHTML = sorted.map((p, i) => {
+            const cd       = i * cardGap;
+            const carRow   = p.final.carValue > 0
+                ? `<span class="final-row" style="animation-delay:${(cd + rowStep).toFixed(2)}s"><span>▶ Cars liquidated</span><span>${formatMoney(p.final.carValue)}</span></span>`
+                : "";
+            const houseRow = p.final.houseValue > 0
+                ? `<span class="final-row" style="animation-delay:${(cd + rowStep * 2).toFixed(2)}s"><span>⌂ Houses liquidated</span><span>${formatMoney(p.final.houseValue)}</span></span>`
+                : "";
+            return `
+                <article class="final-card${p.final.rank === 1 ? " winner" : ""}" style="animation-delay:${cd.toFixed(2)}s">
+                    <div class="final-card-head">
+                        <span class="final-rank">#${p.final.rank}</span>
+                        <strong>${escapeHtml(p.name)}</strong>
+                    </div>
+                    <div class="final-breakdown">
+                        ${carRow}
+                        ${houseRow}
+                        <span class="final-row" style="animation-delay:${(cd + rowStep * 3).toFixed(2)}s"><span>$ Cash</span><span>${formatMoney(p.money)}</span></span>
+                        <span class="final-row" style="animation-delay:${(cd + rowStep * 4).toFixed(2)}s"><span>Net worth</span><strong>${formatMoney(p.final.netWorth)}</strong></span>
+                        <span class="final-row" style="animation-delay:${(cd + rowStep * 5).toFixed(2)}s"><span>÷ ${formatMoney(state.finalRatio)}/pt</span><span>→ +${formatNumber(p.final.convertedLife)} LP</span></span>
+                        <span class="final-row" style="animation-delay:${(cd + rowStep * 6).toFixed(2)}s"><span>♥ Game LIFE</span><span>${formatNumber(p.lifePoints)}</span></span>
+                        <span class="final-row final-total" style="animation-delay:${(cd + rowStep * 7).toFixed(2)}s"><span>Total LIFE Points</span><strong>${formatNumber(p.final.totalLifePoints)}</strong></span>
+                    </div>
                 </article>
-            `).join("")}
-        `;
-    }
-
-    // ─── Setup UI ─────────────────────────────────────────────────────────────
-
-    function createPlayerSetup() {
-        const count = Number(dom.playerCount.value);
-        dom.playerSetupGrid.innerHTML = VISA_COLORS.slice(0, count).map((color, i) => `
-            <div class="setup-player" style="--card-color: ${color.hex}">
-                <div class="visa-chip" aria-hidden="true"></div>
-                <label>${color.name} card ${color.card}
-                    <input name="playerName${i}" value="Player ${i + 1}" maxlength="24" required>
-                </label>
-                <label>Career label
-                    <input name="career${i}" placeholder="Optional">
-                </label>
-            </div>
-        `).join("");
+            `;
+        }).join("");
     }
 
     function createFunctionRing() {
@@ -1171,37 +1289,45 @@
         `).join("");
     }
 
+    // ─── Finals helper ────────────────────────────────────────────────────────
+
+    function showFinalDialog() {
+        if (state.finalCalculated) return;
+        calculateFinals();
+        try {
+            if (!dom.finalDialog.open) dom.finalDialog.showModal();
+        } catch (_) {
+            dom.finalDialog.setAttribute("open", "");
+        }
+        // Re-render after dialog opens so CSS animations start from zero
+        renderFinalResults();
+        // Sell sound fires as each player's asset rows animate in (~rowStep*1 into card)
+        const n = state.players.length;
+        for (let i = 0; i < n; i++) {
+            setTimeout(() => playSound("sell"), i * 1800 + 350);
+        }
+        setTimeout(() => playSound("lottery-win"), n * 1800 + 400);
+    }
+
+    // ─── In-window confirm dialog ─────────────────────────────────────────────
+
+    function showConfirm(message, onYes, onNo = () => {}) {
+        dom.confirmMessage.textContent = message;
+        dom.confirmDialog.showModal();
+        dom.confirmYes.onclick = () => { dom.confirmDialog.close(); onYes(); };
+        dom.confirmNo.onclick  = () => { dom.confirmDialog.close(); onNo(); };
+    }
+
     // ─── Event binding ────────────────────────────────────────────────────────
 
     function bindEvents() {
-        dom.playerCount.addEventListener("change", createPlayerSetup);
-
-        dom.setupForm.addEventListener("submit", (e) => {
-            e.preventDefault();
-            const count   = Number(dom.playerCount.value);
-            const form    = new FormData(dom.setupForm);
-            const players = Array.from({ length: count }, (_, i) => ({
-                name:   form.get(`playerName${i}`),
-                career: form.get(`career${i}`)
-            }));
-            state = createGame({
-                years: Math.max(1, Math.min(99, Number(dom.setupYears.value || 10))),
-                players
-            });
-            saveState();
-            render();
-        });
-
-        dom.resumeButton.addEventListener("click", () => {
-            state = normalizeState(loadState());
-            render();
-        });
-
         dom.resetButton.addEventListener("click", () => {
-            if (!confirm("Reset the LIFEpod and clear the saved game?")) return;
-            state = null;
-            saveState();
-            render();
+            const count = Math.max(2, Math.min(4, Number(dom.playerCountSelect.value) || 4));
+            showConfirm(`Reset and start a new ${count}-player game?`, () => {
+                state = createGame({ years: 10, players: DEFAULT_PLAYERS.slice(0, count) });
+                saveState();
+                render();
+            });
         });
 
         dom.saveButton.addEventListener("click", () => {
@@ -1226,25 +1352,35 @@
                 else if (a === "enter")         confirmInput();
                 else if (a === "spin")          spinTurn();
                 else if (a === "undo")          handleUndo();
-                else if (a === "mode-money")    { if (state) setInputMode("money", 1); }
-                else if (a === "mode-life")     { if (state) setInputMode("life",  1); }
+                else if (a === "mode-money")    { if (state && !isAnimating) setInputMode("money", 1); }
+                else if (a === "mode-life")     { if (state && !isAnimating) setInputMode("life",  1); }
                 return;
             }
 
             // Visa card tap: switch active player (ends previous player's turn)
             const playerCard = e.target.closest("[data-player-index]");
-            if (playerCard && state) {
-                clearLitButtons(); // clear spin/chance result from previous player
-                state.activePlayerIndex = Number(playerCard.dataset.playerIndex);
+            if (playerCard && state && !isAnimating) {
+                const idx = Number(playerCard.dataset.playerIndex);
+                // Lottery: whoever taps first claims the pot
+                if (state.input.mode === "lottery-pending") {
+                    awardLottery(idx);
+                    return;
+                }
+                clearLitButtons();
+                state.activePlayerIndex = idx;
                 clearInput();
-                setScreen("Card", activePlayer().name, "Press SPIN to start turn");
+                setScreen("Card", state.players[idx].name, "Press SPIN to start turn");
                 saveState();
                 render();
-                // Card-slot insertion animation
                 dom.cardSlot.classList.remove("is-inserting");
                 void dom.cardSlot.offsetWidth;
                 dom.cardSlot.classList.add("is-inserting");
                 playSound("card-insert");
+
+                // Finals: first card insertion after game ends triggers immediately (or auto fires 2.5s after last spin)
+                if (state.yearsLeft === 0 && !state.finalCalculated) {
+                    setTimeout(() => { showFinalDialog(); }, 900);
+                }
             }
         });
 
@@ -1268,11 +1404,17 @@
             renderLedger();
         });
 
-        dom.finalButton.addEventListener("click", () => {
-            renderFinalResults();
-            dom.finalDialog.showModal();
+        dom.playerCountSelect.addEventListener("change", () => {
+            const count = Math.max(2, Math.min(4, Number(dom.playerCountSelect.value) || 4));
+            showConfirm(`Start a new ${count}-player game? Current game will be lost.`, () => {
+                state = createGame({ years: 10, players: DEFAULT_PLAYERS.slice(0, count) });
+                saveState();
+                render();
+            }, () => {
+                dom.playerCountSelect.value = String(state.players.length);
+            });
         });
-        dom.runFinalButton.addEventListener("click", calculateFinals);
+
     }
 
     // ─── Service worker ───────────────────────────────────────────────────────
@@ -1295,9 +1437,9 @@
 
     // ─── Boot ─────────────────────────────────────────────────────────────────
 
-    createPlayerSetup();
     createFunctionRing();
     bindEvents();
+    saveState();
     registerServiceWorker();
     render();
 

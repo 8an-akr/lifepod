@@ -17,40 +17,18 @@
                 <h1>LIFEpod</h1>
             </div>
             <div class="topbar-actions">
-                <button class="ghost-button" id="resumeButton" type="button">Resume</button>
-                <button class="ghost-button" id="finalButton" type="button">Final</button>
+                <select id="playerCountSelect" class="player-count-select" aria-label="Players for next game" title="Set number of players, then press Reset">
+                    <option value="2">2 Players</option>
+                    <option value="3">3 Players</option>
+                    <option value="4" selected>4 Players</option>
+                </select>
                 <button class="danger-button" id="resetButton" type="button">Reset</button>
             </div>
         </header>
 
         <main>
-            <!-- SETUP VIEW -->
-            <section class="setup-view" id="setupView" aria-labelledby="setupTitle">
-                <div class="setup-copy">
-                    <p class="eyebrow">New game</p>
-                    <h2 id="setupTitle">Set up the virtual Visa cards</h2>
-                    <p>Use the physical board, careers, scorecards, and LIFE cards. This app handles the bookkeeping the LIFEpod used to do.</p>
-                </div>
-                <form class="setup-form" id="setupForm">
-                    <label>
-                        Years
-                        <input id="setupYears" name="years" type="number" min="1" max="99" value="10" required>
-                    </label>
-                    <label>
-                        Players
-                        <select id="playerCount" name="playerCount">
-                            <option value="2">2 players</option>
-                            <option value="3">3 players</option>
-                            <option value="4" selected>4 players</option>
-                        </select>
-                    </label>
-                    <div class="player-setup-grid" id="playerSetupGrid"></div>
-                    <button class="primary-button" type="submit">Start LIFEpod</button>
-                </form>
-            </section>
-
-            <!-- GAME VIEW -->
-            <section class="game-view is-hidden" id="gameView" aria-label="LIFEpod game controls">
+            <!-- GAME VIEW — always visible -->
+            <section class="game-view" id="gameView" aria-label="LIFEpod game controls">
                 <div class="status-strip">
                     <div>
                         <span class="status-label">Years left</span>
@@ -58,7 +36,7 @@
                     </div>
                     <div>
                         <span class="status-label">Active card</span>
-                        <strong id="activeCard">Red 0001</strong>
+                        <strong id="activeCard">—</strong>
                     </div>
                     <div>
                         <span class="status-label">Last spin</span>
@@ -83,15 +61,37 @@
                             <div class="function-ring" id="functionRing"></div>
                             <div class="device-core">
                                 <!-- Card slot -->
-                                <div class="card-slot" id="cardSlot">CARD IN</div>
+                                <div class="card-slot" id="cardSlot">NO CARD</div>
 
                                 <!-- Screen row: − screen + -->
                                 <div class="screen-row">
                                     <button class="pod-button sign side-sign" data-action="sign-negative" type="button" aria-label="Subtract / scroll back">−</button>
                                     <div class="screen" id="screen" role="status" aria-live="polite">
-                                        <span class="screen-mode" id="screenMode">Ready</span>
-                                        <strong id="screenValue">Insert card</strong>
-                                        <span id="screenHint">Press SPIN to start a turn</span>
+                                        <!-- Banner: mode + current value/input -->
+                                        <div class="lcd-banner">
+                                            <span class="lcd-mode" id="screenMode">READY</span>
+                                            <strong class="lcd-val" id="screenValue"></strong>
+                                        </div>
+                                        <!-- LCD stat rows (mirror the physical LIFEpod screen) -->
+                                        <div class="lcd-stats">
+                                            <div class="lcd-row lcd-row-assets">
+                                                <span class="lcd-g">⌂</span><span id="lcdHouses" class="lcd-cnt">0</span>
+                                                <span class="lcd-g">▶</span><span id="lcdCars"   class="lcd-cnt">0</span>
+                                                <span class="lcd-g">☺</span><span id="lcdBabies" class="lcd-cnt">0</span>
+                                            </div>
+                                            <div class="lcd-row lcd-row-money">
+                                                <span class="lcd-g">$</span>
+                                                <span id="lcdMoney"   class="lcd-num">0</span>
+                                                <span id="lcdMarried" class="lcd-badge">○</span>
+                                            </div>
+                                            <div class="lcd-row lcd-row-life">
+                                                <span class="lcd-g">♥</span>
+                                                <span id="lcdLife"  class="lcd-num">0</span>
+                                                <span class="lcd-g lcd-sep">◷</span>
+                                                <span id="lcdYears" class="lcd-yrs">—</span>
+                                            </div>
+                                        </div>
+                                        <span class="lcd-hint" id="screenHint">Tap a card · YEARS to set length</span>
                                     </div>
                                     <button class="pod-button sign side-sign" data-action="sign-positive" type="button" aria-label="Add / scroll forward">+</button>
                                 </div>
@@ -99,14 +99,14 @@
                                 <!-- Main controls -->
                                 <div class="main-controls">
                                     <button class="pod-button enter" data-action="enter" type="button">ENTER</button>
-                                    <button class="pod-button spin" data-action="spin" type="button">SPIN</button>
-                                    <button class="pod-button undo" data-action="undo" type="button">UNDO</button>
+                                    <button class="pod-button spin"  data-action="spin"  type="button">SPIN</button>
+                                    <button class="pod-button undo"  data-action="undo"  type="button">UNDO</button>
                                 </div>
 
                                 <!-- Mode controls -->
                                 <div class="mode-controls">
                                     <button class="pod-button money" data-action="mode-money" type="button">$</button>
-                                    <button class="pod-button life" data-action="mode-life" type="button">LIFE POINTS</button>
+                                    <button class="pod-button life"  data-action="mode-life"  type="button">LIFE POINTS</button>
                                 </div>
                             </div>
                         </div>
@@ -135,9 +135,19 @@
             <div id="finalResults" class="final-results"></div>
             <menu>
                 <button class="ghost-button" value="cancel" type="submit">Close</button>
-                <button class="primary-button" id="runFinalButton" value="default" type="button">Calculate Finals</button>
             </menu>
         </form>
+    </dialog>
+
+    <!-- CONFIRM DIALOG -->
+    <dialog class="modal confirm-modal" id="confirmDialog">
+        <div class="confirm-body">
+            <p id="confirmMessage" class="confirm-msg"></p>
+            <menu>
+                <button class="ghost-button" id="confirmNo" type="button">Cancel</button>
+                <button class="danger-button" id="confirmYes" type="button">Confirm</button>
+            </menu>
+        </div>
     </dialog>
 
     <script src="lifepod.js"></script>
