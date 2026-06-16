@@ -92,6 +92,10 @@
 
     let state = normalizeState(loadState())
              ?? createGame({ years: 10, players: DEFAULT_PLAYERS });
+    // Undo history lives OUTSIDE `state` and is never persisted. Keeping it inside
+    // state made every snapshot embed the whole growing stack → the saved JSON
+    // ballooned past the localStorage quota. In-memory only is plenty for undo.
+    let undoStack = [];
     let ledgerFilterCleared = false;
     let isAnimating = false; // blocks all input while spinner/chance/lottery animates
     let litButtonIndex = null; // ring button currently held lit after a spin/chance land
@@ -365,8 +369,7 @@
                 cars:           [],
                 houses:         []
             })),
-            ledger:    [],
-            undoStack: []
+            ledger:    []
         };
     }
 
@@ -389,7 +392,8 @@
         s.input.index   ??= 0;
         s.screen   ??= { mode: "Ready", value: "", hint: "Tap a Visa card then press SPIN" };
         s.ledger   ??= [];
-        s.undoStack ??= [];
+        if (Array.isArray(s.ledger) && s.ledger.length > 60) s.ledger.length = 60;
+        delete s.undoStack; // legacy field — undo history is no longer stored in state
         s.players?.forEach((p, i) => {
             p.id             ??= cryptoId();
             p.order          ??= i + 1;
@@ -413,11 +417,27 @@
     }
 
     function saveState() {
-        if (!state) { localStorage.removeItem(STORAGE_KEY); return; }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        if (!state) { try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ } return; }
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (err) {
+            // Storage full (or blocked): trim the ledger and retry once so a save
+            // failure can never crash the game mid-action.
+            if (Array.isArray(state.ledger) && state.ledger.length > 15) state.ledger.length = 15;
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (_) {
+                console.warn("LIFEpod: could not persist game state —", err?.name || err);
+            }
+        }
     }
 
-    function snapshot() { return JSON.parse(JSON.stringify(state)); }
+    // Deep copy of the game state for undo, EXCLUDING the ledger (kept live, not
+    // rewound) so snapshots stay small. (Undo history itself is not in state.)
+    function snapshot() {
+        const { ledger, ...rest } = state;
+        return JSON.parse(JSON.stringify(rest));
+    }
 
     // ─── Commit / Undo ────────────────────────────────────────────────────────
 
@@ -452,8 +472,8 @@
             after:    ap2 ? summarizePlayer(ap2) : null
         });
         if (state.ledger.length > 60) state.ledger.length = 60;
-        state.undoStack.push(before);
-        if (state.undoStack.length > 50) state.undoStack.shift();
+        undoStack.push(before);
+        if (undoStack.length > 40) undoStack.shift();
         ledgerFilterCleared = false;
         saveState();
 
@@ -512,13 +532,15 @@
             renderScreen();
             return;
         }
-        if (state.undoStack.length === 0) {
+        if (undoStack.length === 0) {
             setScreen("Undo", "Nothing to undo", "History is empty");
             renderScreen();
             playSound("error");
             return;
         }
-        state = normalizeState(state.undoStack.pop());
+        const liveLedger = state.ledger;           // snapshots don't carry the ledger…
+        state = normalizeState(undoStack.pop());
+        state.ledger = liveLedger;                 // …so keep the running history
         saveState();
         setScreen("Undo", "Restored", "Last action cancelled");
         playSound("undo");
@@ -1583,6 +1605,7 @@
             const count = Math.max(2, Math.min(4, Number(dom.playerCountSelect.value) || 4));
             showConfirm(`Reset and start a new ${count}-player game?`, () => {
                 state = createGame({ years: 10, players: DEFAULT_PLAYERS.slice(0, count) });
+                undoStack = [];
                 saveState();
                 render();
             });
@@ -1648,6 +1671,7 @@
             const count = Math.max(2, Math.min(4, Number(dom.playerCountSelect.value) || 4));
             showConfirm(`Start a new ${count}-player game? Current game will be lost.`, () => {
                 state = createGame({ years: 10, players: DEFAULT_PLAYERS.slice(0, count) });
+                undoStack = [];
                 saveState();
                 render();
             }, () => {
