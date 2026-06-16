@@ -55,6 +55,23 @@ select:focus-visible {
     outline-offset: 2px;
 }
 
+/* ── Inline icons ── */
+.icon-sprite {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+.ic {
+    width: 1em;
+    height: 1em;
+    display: inline-block;
+    vertical-align: -0.14em;
+    flex: 0 0 auto;
+    pointer-events: none;
+}
+
 .app {
     width: min(1440px, 100%);
     margin: 0 auto;
@@ -342,8 +359,30 @@ select {
 }
 
 .asset-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px 9px;
     color: var(--muted);
     line-height: 1.35;
+}
+
+.asset-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.asset-ic {
+    width: 1.05em;
+    height: 1.05em;
+    opacity: 0.85;
+}
+
+.asset-chip.is-married {
+    color: var(--accent);
+    font-weight: 800;
 }
 
 .device-wrap {
@@ -392,15 +431,26 @@ select {
     cursor: pointer;
 }
 
+.ring-button {
+    gap: 1px;
+}
+
 .ring-button strong {
-    font-size: clamp(1rem, 3.8vw, 1.45rem);
+    font-size: clamp(0.92rem, 3.4vw, 1.3rem);
     line-height: 1;
 }
 
-.ring-button span {
+.ring-ic {
+    width: clamp(13px, 3.2vw, 17px);
+    height: clamp(13px, 3.2vw, 17px);
+    opacity: 0.82;
+}
+
+.ring-button .ring-word {
     max-width: 100%;
-    font-size: clamp(0.48rem, 1.7vw, 0.66rem);
+    font-size: clamp(0.46rem, 1.6vw, 0.62rem);
     line-height: 1;
+    letter-spacing: 0.02em;
     overflow-wrap: anywhere;
 }
 
@@ -525,11 +575,19 @@ select {
 }
 
 .lcd-g {
-    opacity: 0.7;
+    opacity: 0.72;
     flex-shrink: 0;
     width: 1.1em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
-    font-family: sans-serif; /* glyphs render better outside monospace */
+}
+
+.lcd-g .ic {
+    width: 1.18em;
+    height: 1.18em;
+    vertical-align: -0.18em;
 }
 
 .lcd-sep {
@@ -552,10 +610,21 @@ select {
 
 .lcd-badge {
     min-width: 1.6em;
-    text-align: right;
-    font-size: 0.9em;
-    font-family: sans-serif;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
     flex-shrink: 0;
+    opacity: 0.25;
+    transition: opacity 0.2s ease;
+}
+
+.lcd-badge.is-on {
+    opacity: 1;
+}
+
+.lcd-badge .ic {
+    width: 1.3em;
+    height: 1.3em;
 }
 
 .lcd-yrs {
@@ -669,6 +738,15 @@ select {
     border-radius: var(--radius);
     background: #fbfcfe;
     border: 1px solid var(--line);
+}
+
+.ledger-entry.is-error {
+    border-color: rgba(180, 40, 40, 0.35);
+    background: rgba(180, 40, 40, 0.04);
+}
+
+.ledger-entry.is-error strong {
+    color: #b82828;
 }
 
 .ledger-entry span {
@@ -801,6 +879,22 @@ select {
 }
 
 .final-row strong { color: var(--ink); font-weight: 700; }
+
+.final-ic {
+    width: 1.05em;
+    height: 1.05em;
+    margin-right: 5px;
+    opacity: 0.7;
+    vertical-align: -0.14em;
+}
+
+.final-trophy {
+    width: 1.1em;
+    height: 1.1em;
+    margin-right: 5px;
+    color: #d39a16;
+    vertical-align: -0.14em;
+}
 
 .final-total {
     font-size: 0.9rem;

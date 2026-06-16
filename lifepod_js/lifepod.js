@@ -28,17 +28,17 @@
     // Ring buttons — 11 positions clockwise from top.
     // Indices 0-10 match the physical device digit/function labels.
     const POD_BUTTONS = [
-        { key: "salary",   number: "0",  label: "SALARY"   },
-        { key: "lottery",  number: "1",  label: "LOTTERY"  },
-        { key: "chance",   number: "2",  label: "CHANCE"   },
-        { key: "marriage", number: "3",  label: "MARRIAGE" },
-        { key: "digit-4",  number: "4",  label: ""         },
-        { key: "house",    number: "5",  label: "HOUSE"    },
-        { key: "car",      number: "6",  label: "CAR"      },
-        { key: "baby",     number: "7",  label: "BABY"     },
-        { key: "volume",   number: "8",  label: "VOLUME"   },
-        { key: "digit-9",  number: "9",  label: ""         },
-        { key: "years",    number: "10", label: "YEARS"    }
+        { key: "salary",   number: "0",  label: "SALARY",   icon: "cash"    },
+        { key: "lottery",  number: "1",  label: "LOTTERY",  icon: "lottery" },
+        { key: "chance",   number: "2",  label: "CHANCE",   icon: "chance"  },
+        { key: "marriage", number: "3",  label: "MARRIAGE", icon: "rings"   },
+        { key: "digit-4",  number: "4",  label: "",         icon: ""        },
+        { key: "house",    number: "5",  label: "HOUSE",    icon: "house"   },
+        { key: "car",      number: "6",  label: "CAR",      icon: "car"     },
+        { key: "baby",     number: "7",  label: "BABY",     icon: "baby"    },
+        { key: "volume",   number: "8",  label: "VOLUME",   icon: "volume"  },
+        { key: "digit-9",  number: "9",  label: "",         icon: ""        },
+        { key: "years",    number: "10", label: "YEARS",    icon: "clock"   }
     ];
 
     // Button indices for the spinner (1-10 maps to ring button indices 1-10)
@@ -95,45 +95,91 @@
     let litButtonIndex = null; // ring button currently held lit after a spin/chance land
 
     // ─── Audio engine (Web Audio API — no external files) ─────────────────────
+    //
+    // Every voice routes through a shared master gain → compressor → speakers.
+    // The compressor keeps stacked chords from clipping; the master gain is the
+    // single mute control toggled by the VOLUME ring button (persisted).
 
-    let audioCtx = null;
+    const MUTE_KEY = "lifepod-muted-v1";
+    let audioCtx   = null;
+    let masterGain = null;
+    let isMuted    = loadMutePref();
+
+    function loadMutePref() {
+        try { return localStorage.getItem(MUTE_KEY) === "1"; } catch { return false; }
+    }
+    function saveMutePref() {
+        try { localStorage.setItem(MUTE_KEY, isMuted ? "1" : "0"); } catch { /* storage blocked */ }
+    }
 
     function getAudioCtx() {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = isMuted ? 0 : 0.9;
+            const comp = audioCtx.createDynamicsCompressor();
+            comp.threshold.value = -14;
+            comp.ratio.value     = 6;
+            comp.attack.value    = 0.003;
+            comp.release.value   = 0.25;
+            masterGain.connect(comp);
+            comp.connect(audioCtx.destination);
+        }
+        // Browsers start the context suspended until a user gesture; every sound
+        // here is gesture-triggered, so resuming on demand is safe.
+        if (audioCtx.state === "suspended") audioCtx.resume();
         return audioCtx;
     }
 
     function tone(freq, type, startTime, duration, gain = 0.32) {
-        const ctx = getAudioCtx();
-        const osc = ctx.createOscillator();
-        const env = ctx.createGain();
+        const osc = audioCtx.createOscillator();
+        const env = audioCtx.createGain();
         osc.connect(env);
-        env.connect(ctx.destination);
+        env.connect(masterGain);
         osc.type = type;
         osc.frequency.setValueAtTime(freq, startTime);
         env.gain.setValueAtTime(0, startTime);
-        env.gain.linearRampToValueAtTime(gain, startTime + 0.005);
+        env.gain.linearRampToValueAtTime(gain, startTime + 0.008);
         env.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
         osc.start(startTime);
         osc.stop(startTime + duration + 0.01);
     }
 
     function sweep(freqStart, freqEnd, type, startTime, duration, gain = 0.22) {
-        const ctx = getAudioCtx();
-        const osc = ctx.createOscillator();
-        const env = ctx.createGain();
+        const osc = audioCtx.createOscillator();
+        const env = audioCtx.createGain();
         osc.connect(env);
-        env.connect(ctx.destination);
+        env.connect(masterGain);
         osc.type = type;
         osc.frequency.setValueAtTime(freqStart, startTime);
         osc.frequency.linearRampToValueAtTime(freqEnd, startTime + duration);
-        env.gain.setValueAtTime(gain, startTime);
+        env.gain.setValueAtTime(0, startTime);
+        env.gain.linearRampToValueAtTime(gain, startTime + 0.01);
         env.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
         osc.start(startTime);
         osc.stop(startTime + duration + 0.01);
     }
 
+    function toggleMute() {
+        isMuted = !isMuted;
+        saveMutePref();
+        if (masterGain) {
+            masterGain.gain.setTargetAtTime(isMuted ? 0 : 0.9, getAudioCtx().currentTime, 0.015);
+        }
+        syncVolumeIcon();
+        setScreen("Sound", isMuted ? "Muted" : "On",
+            isMuted ? "Press VOLUME to unmute" : "Sound effects on");
+        renderScreen();
+        if (!isMuted) playSound("card-insert");
+    }
+
+    function syncVolumeIcon() {
+        const use = dom.functionRing.querySelector('[data-pod-key="volume"] use');
+        if (use) use.setAttribute("href", isMuted ? "#ic-volume-off" : "#ic-volume");
+    }
+
     function playSound(type) {
+        if (isMuted) return;
         try {
             const ctx = getAudioCtx();
             const t   = ctx.currentTime;
@@ -160,11 +206,13 @@
                     tone(1047,"sine",  t + 0.1, 0.18, 0.14);
                     break;
                 case "marriage":
-                    // "Here Comes the Bride" G G A G motif
-                    tone(784, "sine", t,        0.22, 0.32);
-                    tone(784, "sine", t + 0.26, 0.12, 0.26);
-                    tone(880, "sine", t + 0.40, 0.22, 0.32);
-                    tone(784, "sine", t + 0.64, 0.34, 0.36);
+                    // "Here Comes the Bride" — G G A G with a closing chord shimmer
+                    tone(784,  "sine", t,        0.22, 0.30);
+                    tone(784,  "sine", t + 0.26, 0.12, 0.24);
+                    tone(880,  "sine", t + 0.40, 0.22, 0.30);
+                    tone(784,  "sine", t + 0.64, 0.40, 0.34);
+                    tone(1175, "sine", t + 0.66, 0.38, 0.16);
+                    tone(1568, "sine", t + 0.70, 0.34, 0.10);
                     break;
                 case "baby":
                     tone(523, "sine", t,        0.12, 0.26);
@@ -179,19 +227,24 @@
                     sweep(200, 900, "sawtooth", t, 1.5, 0.18);
                     break;
                 case "lottery-win":
-                    [523, 659, 784, 1047].forEach((f, i) => tone(f, "sine", t + i * 0.13, 0.2, 0.32));
-                    tone(1047, "sine", t + 0.55, 0.5, 0.28);
+                    [523, 659, 784, 1047].forEach((f, i) => tone(f, "sine", t + i * 0.13, 0.2, 0.30));
+                    tone(262,  "triangle", t + 0.52, 0.5,  0.20);
+                    tone(1047, "sine",     t + 0.55, 0.5,  0.26);
+                    tone(1568, "sine",     t + 0.58, 0.45, 0.14);
                     break;
                 case "error":
-                    tone(440, "square", t,        0.08, 0.18);
-                    tone(330, "square", t + 0.12, 0.08, 0.18);
+                    // Soft "uh-uh" — triangle instead of a buzzy square
+                    tone(311, "triangle", t,        0.10, 0.20);
+                    tone(233, "triangle", t + 0.11, 0.16, 0.20);
                     break;
                 case "undo":
                     sweep(440, 220, "sine", t, 0.16, 0.28);
                     break;
                 case "card-insert":
-                    tone(880,  "sine", t,        0.04, 0.20);
-                    tone(1047, "sine", t + 0.06, 0.07, 0.15);
+                    // Low "seat" thunk plus a bright confirmation click
+                    tone(196,  "triangle", t,        0.10, 0.18);
+                    tone(880,  "sine",     t + 0.05, 0.05, 0.18);
+                    tone(1175, "sine",     t + 0.10, 0.07, 0.13);
                     break;
                 case "buy":
                     tone(659, "sine", t,       0.1,  0.26);
@@ -202,8 +255,9 @@
                     tone(523, "sine", t + 0.1, 0.15, 0.22);
                     break;
                 case "chance-win":
-                    tone(659, "sine", t,       0.1,  0.28);
-                    tone(880, "sine", t + 0.1, 0.16, 0.30);
+                    tone(659,  "sine", t,        0.10, 0.26);
+                    tone(880,  "sine", t + 0.10, 0.12, 0.28);
+                    tone(1047, "sine", t + 0.22, 0.18, 0.26);
                     break;
             }
         } catch (_) { /* AudioContext unavailable */ }
@@ -370,7 +424,18 @@
         const beforeMoney  = ap?.money      ?? 0;
         const beforeLife   = ap?.lifePoints ?? 0;
 
-        mutator();
+        try {
+            mutator();
+        } catch (err) {
+            // Roll back any partial mutation so a crash never leaves corrupt state,
+            // and surface the real error in the ledger instead of failing silently.
+            state = before;
+            ledgerLog("⚠ Crash", `${action} failed: ${err.message}`);
+            saveState();
+            render();
+            playSound("error");
+            return;
+        }
 
         const ap2 = ap ? getPlayer(ap.id) : null;
         state.ledger.unshift({
@@ -439,7 +504,7 @@
             playSound("error");
             return;
         }
-        state = state.undoStack.pop();
+        state = normalizeState(state.undoStack.pop());
         saveState();
         setScreen("Undo", "Restored", "Last action cancelled");
         playSound("undo");
@@ -462,6 +527,12 @@
     function formatNumber(n) { return new Intl.NumberFormat("en-US").format(Math.round(n)); }
     function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
     function cryptoId() { return window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
+
+    // Inline SVG icon referencing the sprite in lifepod.html. fill="currentColor"
+    // lets each icon inherit the colour of its surrounding text (LCD ink, card text…).
+    function svgIcon(name, cls = "") {
+        return `<svg class="ic${cls ? " " + cls : ""}" fill="currentColor" aria-hidden="true"><use href="#ic-${name}"/></svg>`;
+    }
 
     // ─── Screen helpers ───────────────────────────────────────────────────────
 
@@ -520,20 +591,23 @@
 
         if (mode === "car-select")       { confirmCarSelect();   return; }
         if (mode === "house-select")     { confirmHouseSelect(); return; }
-        if (mode === "car-buyorsell")    { playSound("error"); return; }
-        if (mode === "house-buyorsell")  { playSound("error"); return; }
-        if (mode === "lottery-pending")  { playSound("error"); return; }
+        if (mode === "car-buyorsell")    { ledgerLog("⚠ Input", "Press + to buy or − to sell car"); playSound("error"); return; }
+        if (mode === "house-buyorsell")  { ledgerLog("⚠ Input", "Press + to buy or − to sell house"); playSound("error"); return; }
+        if (mode === "lottery-pending")  { ledgerLog("⚠ Lottery", "Tap a card to claim — don't press ENTER"); playSound("error"); return; }
 
         if (!["money","life","salary","years"].includes(mode)) {
             setScreen("Enter", "Choose action", "Press a function button first");
+            ledgerLog("⚠ Input", "ENTER pressed without choosing a function first");
             renderScreen(); playSound("error"); return;
         }
         if (["money","life","salary"].includes(mode) && !activePlayer()) {
             setScreen("No card", "Tap your card first", "Insert a Visa card first");
+            ledgerLog("⚠ No Card", "Tried to enter value without a card");
             renderScreen(); playSound("error"); return;
         }
         if (!amount && mode !== "years") {
             setScreen("Enter", "No amount", "Enter a value before pressing ENTER");
+            ledgerLog("⚠ Input", "ENTER pressed with no amount entered");
             renderScreen(); playSound("error"); return;
         }
 
@@ -608,10 +682,12 @@
         }
         if (!state || state.yearsLeft <= 0) {
             setScreen("Game over", "Final scoring", "Insert any card to see final scores");
+            ledgerLog("⚠ Game Over", "Tried to spin after game ended");
             renderScreen(); playSound("error"); return;
         }
         if (!activePlayer()) {
             setScreen("No card", "Tap your card first", "Insert your Visa card to spin");
+            ledgerLog("⚠ No Card", "Tried to spin without inserting a card");
             renderScreen(); playSound("error"); return;
         }
 
@@ -621,6 +697,7 @@
         animateOptions(SPIN_INDICES, targetPos, () => {
             commit("Spin", `Player spun ${baseSpin}`, () => {
                 const p = activePlayer();
+                if (!p) { ledgerLog("⚠ Spin Error", "No active player when spin landed — undo and retry"); return; }
 
                 // 1. Debt interest: 10% of abs(negative balance) deducted first
                 let interest = 0;
@@ -750,7 +827,7 @@
         dom.screenHint.textContent  = "Watch the wheel · Tap card to claim";
         dom.lcdHouses.textContent = dom.lcdCars.textContent = dom.lcdBabies.textContent = "–";
         dom.lcdMoney.textContent  = dom.lcdLife.textContent = "–––––";
-        dom.lcdMarried.textContent = "–";
+        dom.lcdMarried.classList.remove("is-on");
 
         playSound("lottery-sweep");
 
@@ -839,11 +916,13 @@
         const yearlyRemaining = 2 - (p.babiesThisYear ?? 0);
         if (yearlyRemaining <= 0) {
             setScreen("Baby", "Year limit", "Max 2 babies per year");
+            ledgerLog("⚠ Baby", `${p.name}: already had ${p.babiesThisYear} babies this year`);
             renderScreen(); playSound("error"); return;
         }
         const adding = Math.min(count, 9 - p.children, yearlyRemaining);
         if (adding <= 0) {
             setScreen("Baby", "Max 9 children", "Family limit reached");
+            ledgerLog("⚠ Baby", `${p.name}: already has ${p.children} children`);
             renderScreen(); playSound("error"); return;
         }
         commit(adding === 2 ? "Twins" : "Baby", `Added ${adding} child`, () => {
@@ -884,10 +963,15 @@
             : CAR_LIST;
         if (!list.length) {
             setScreen("CAR", "No cars to sell", "You don't own any cars");
+            ledgerLog("⚠ Sell Car", "No cars owned to sell");
             clearInput(); renderScreen(); playSound("error"); return;
         }
-        state.input = { mode: "car-select", sign: 1, buffer: "", subMode, index: 0 };
-        showCarOption(subMode, 0);
+        // In buy mode, skip past already-owned cars so ENTER works on first press
+        const startCarIdx = subMode === "buy"
+            ? Math.max(0, list.findIndex((c) => !p.cars.some((oc) => oc.type === c.id)))
+            : 0;
+        state.input = { mode: "car-select", sign: 1, buffer: "", subMode, index: startCarIdx };
+        showCarOption(subMode, startCarIdx);
     }
 
     function showCarOption(subMode, index) {
@@ -900,7 +984,10 @@
         if (!car) return;
         const owned = p.cars.find((oc) => oc.type === car.id);
         const value = owned ? formatMoney(owned.value) : formatMoney(car.cost);
-        setScreen(`CAR ${subMode.toUpperCase()}`, car.name, `${value} · ENTER to ${subMode}`);
+        const hint  = subMode === "buy" && owned
+            ? `Already owned (${value}) · − to scroll`
+            : `${value} · ENTER to ${subMode}`;
+        setScreen(`CAR ${subMode.toUpperCase()}`, car.name, hint);
         renderScreen();
     }
 
@@ -923,10 +1010,11 @@
             ? CAR_LIST.filter((c) => p.cars.some((oc) => oc.type === c.id))
             : CAR_LIST;
         const car = list[state.input.index];
-        if (!car) return;
+        if (!car) { ledgerLog("⚠ Car Select", `Invalid index ${state.input.index} (list has ${list.length} items)`); return; }
         if (subMode === "buy") {
             if (p.cars.some((oc) => oc.type === car.id)) {
                 setScreen("CAR", "Already owned", `You already have the ${car.name} · − to scroll`);
+                ledgerLog("⚠ Already Owned", `${car.name} is already owned by ${p.name}`);
                 renderScreen(); playSound("error"); return;
             }
             clearInput();
@@ -948,7 +1036,7 @@
         const p   = activePlayer();
         if (!p) return;
         const car = p.cars.find((c) => c.type === type);
-        if (!car) { setScreen("CAR","Not owned",""); renderScreen(); playSound("error"); return; }
+        if (!car) { setScreen("CAR","Not owned",""); ledgerLog("⚠ Sell Car", `Car type "${type}" not found on ${p.name}`); renderScreen(); playSound("error"); return; }
         commit("Sell Car", `Sold ${CAR_TYPES[type].name} for ${formatMoney(car.value)}`, () => {
             const pl = activePlayer();
             if (!pl) return;
@@ -981,10 +1069,15 @@
             : HOUSE_LIST;
         if (!list.length) {
             setScreen("HOUSE", "No houses to sell", "You don't own any houses");
+            ledgerLog("⚠ Sell House", "No houses owned to sell");
             clearInput(); renderScreen(); playSound("error"); return;
         }
-        state.input = { mode: "house-select", sign: 1, buffer: "", subMode, index: 0 };
-        showHouseOption(subMode, 0);
+        // In buy mode, skip past already-owned houses so ENTER works on first press
+        const startHouseIdx = subMode === "buy"
+            ? Math.max(0, list.findIndex((h) => !p.houses.some((oh) => oh.type === h.id)))
+            : 0;
+        state.input = { mode: "house-select", sign: 1, buffer: "", subMode, index: startHouseIdx };
+        showHouseOption(subMode, startHouseIdx);
     }
 
     function showHouseOption(subMode, index) {
@@ -997,7 +1090,10 @@
         if (!house) return;
         const owned = p.houses.find((oh) => oh.type === house.id);
         const value = owned ? formatMoney(owned.value) : formatMoney(house.cost);
-        setScreen(`HOUSE ${subMode.toUpperCase()}`, house.name, `${value} · ENTER to ${subMode}`);
+        const hint  = subMode === "buy" && owned
+            ? `Already owned (${value}) · − to scroll`
+            : `${value} · ENTER to ${subMode}`;
+        setScreen(`HOUSE ${subMode.toUpperCase()}`, house.name, hint);
         renderScreen();
     }
 
@@ -1020,10 +1116,11 @@
             ? HOUSE_LIST.filter((h) => p.houses.some((oh) => oh.type === h.id))
             : HOUSE_LIST;
         const house = list[state.input.index];
-        if (!house) return;
+        if (!house) { ledgerLog("⚠ House Select", `Invalid index ${state.input.index} (list has ${list.length} items) — subMode: ${subMode}`); return; }
         if (subMode === "buy") {
             if (p.houses.some((oh) => oh.type === house.id)) {
                 setScreen("HOUSE", "Already owned", `You already have the ${house.name} · − to scroll`);
+                ledgerLog("⚠ Already Owned", `${house.name} is already owned by ${p.name}`);
                 renderScreen(); playSound("error"); return;
             }
             clearInput();
@@ -1045,7 +1142,7 @@
         const p     = activePlayer();
         if (!p) return;
         const house = p.houses.find((h) => h.type === type);
-        if (!house) { setScreen("HOUSE","Not owned",""); renderScreen(); playSound("error"); return; }
+        if (!house) { setScreen("HOUSE","Not owned",""); ledgerLog("⚠ Sell House", `House type "${type}" not found on ${p.name}`); renderScreen(); playSound("error"); return; }
         commit("Sell House", `Sold ${HOUSE_TYPES[type].name} for ${formatMoney(house.value)}`, () => {
             const pl = activePlayer();
             if (!pl) return;
@@ -1092,6 +1189,7 @@
         const needsPlayer = ["salary", "marriage", "house", "car", "baby"];
         if (!activePlayer() && needsPlayer.includes(key)) {
             setScreen("No card", "Tap your card first", "Insert a Visa card to use this function");
+            ledgerLog("⚠ No Card", `Tried to use ${key} button without a card`);
             renderScreen(); playSound("error"); return;
         }
 
@@ -1112,7 +1210,7 @@
             house:    enterHouseMode,
             car:      enterCarMode,
             baby:     enterBabyMode,
-            volume:   () => { setScreen("Volume", "Silent", "No speaker on this device"); renderScreen(); },
+            volume:   toggleMute,
             years:    () => setInputMode("years", 1)
         };
         handlers[key]?.();
@@ -1157,7 +1255,7 @@
             const isActive = cur && p.id === cur.id;
             const isWinner = p.final?.rank === 1;
             const finalHtml = p.final
-                ? `<span class="stat-row final-stat-row"><span>#${p.final.rank} Final LIFE</span><strong class="final-pts">${formatNumber(p.final.totalLifePoints)}</strong></span>`
+                ? `<span class="stat-row final-stat-row"><span>${isWinner ? svgIcon("trophy", "final-trophy") : ""}#${p.final.rank} Final LIFE</span><strong class="final-pts">${formatNumber(p.final.totalLifePoints)}</strong></span>`
                 : "";
             return `
                 <button class="player-card${isActive ? " is-active" : ""}${isWinner ? " is-winner-card" : ""}" data-player-index="${i}" style="--card-color: ${color.hex}" type="button">
@@ -1169,7 +1267,12 @@
                     <span class="stat-row"><span>Money</span><strong data-stat="money">${formatMoney(p.money)}</strong></span>
                     <span class="stat-row"><span>LIFE</span><strong data-stat="life">${formatNumber(p.lifePoints)}</strong></span>
                     <span class="stat-row"><span>Salary</span><strong>${formatMoney(p.salary)}</strong></span>
-                    <span class="asset-line">${p.married ? "♦ married · " : ""}${p.children} kids · ${p.cars.length} cars${carVal ? " " + formatMoney(carVal) : ""} · ${p.houses.length} houses${houseVal ? " " + formatMoney(houseVal) : ""}</span>
+                    <span class="asset-line">
+                        ${p.married ? `<span class="asset-chip is-married">${svgIcon("rings", "asset-ic")} Married</span>` : ""}
+                        <span class="asset-chip" title="Children">${svgIcon("baby", "asset-ic")} ${p.children}</span>
+                        <span class="asset-chip" title="Cars">${svgIcon("car", "asset-ic")} ${p.cars.length}${carVal ? " · " + formatMoney(carVal) : ""}</span>
+                        <span class="asset-chip" title="Houses">${svgIcon("house", "asset-ic")} ${p.houses.length}${houseVal ? " · " + formatMoney(houseVal) : ""}</span>
+                    </span>
                     ${finalHtml}
                 </button>
             `;
@@ -1193,7 +1296,7 @@
             dom.lcdCars.textContent    = "–";
             dom.lcdBabies.textContent  = "–";
             dom.lcdMoney.textContent   = "–––––––";
-            dom.lcdMarried.textContent = "–";
+            dom.lcdMarried.classList.remove("is-on");
             dom.lcdLife.textContent    = "–––––––";
             dom.lcdYears.textContent   = state.yearsLeft;
             return;
@@ -1202,7 +1305,7 @@
         dom.lcdHouses.textContent  = p.houses.length;
         dom.lcdCars.textContent    = p.cars.length;
         dom.lcdBabies.textContent  = p.children;
-        dom.lcdMarried.textContent = p.married ? "♦" : "○";
+        dom.lcdMarried.classList.toggle("is-on", p.married);
         dom.lcdYears.textContent   = state.yearsLeft;
 
         // During digit entry, show input buffer in the relevant slot
@@ -1230,7 +1333,7 @@
         dom.ledger.innerHTML = state.ledger.slice(0, 60).map((entry) => {
             const p = entry.playerId ? getPlayer(entry.playerId) : null;
             return `
-                <article class="ledger-entry">
+                <article class="ledger-entry${entry.isError ? " is-error" : ""}">
                     <time>${new Date(entry.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>
                     <div>
                         <strong>${escapeHtml(entry.action)}</strong>
@@ -1240,6 +1343,22 @@
                 </article>
             `;
         }).join("");
+    }
+
+    function ledgerLog(action, detail) {
+        if (!state) return;
+        state.ledger.unshift({
+            id:       cryptoId(),
+            at:       Date.now(),
+            playerId: activePlayer()?.id || null,
+            action,
+            detail,
+            before:   null,
+            after:    null,
+            isError:  true
+        });
+        if (state.ledger.length > 60) state.ledger.length = 60;
+        renderLedger();
     }
 
     function ledgerDelta(b, a) {
@@ -1257,30 +1376,31 @@
             return;
         }
         const sorted  = [...state.players].sort((a, b) => b.final.totalLifePoints - a.final.totalLifePoints);
-        const cardGap = 1.8; // seconds between each player's card appearing
-        const rowStep = 0.22; // seconds between each row within a card
+        const rowStep = 0.8;        // seconds between each row within a card
+        const cardGap = rowStep * 8; // 6.4s — all 7 rows finish before next card starts
 
         dom.finalResults.innerHTML = sorted.map((p, i) => {
             const cd       = i * cardGap;
             const carRow   = p.final.carValue > 0
-                ? `<span class="final-row" style="animation-delay:${(cd + rowStep).toFixed(2)}s"><span>▶ Cars liquidated</span><span>${formatMoney(p.final.carValue)}</span></span>`
+                ? `<span class="final-row" style="animation-delay:${(cd + rowStep).toFixed(2)}s"><span>${svgIcon("car", "final-ic")}Cars liquidated</span><span>${formatMoney(p.final.carValue)}</span></span>`
                 : "";
             const houseRow = p.final.houseValue > 0
-                ? `<span class="final-row" style="animation-delay:${(cd + rowStep * 2).toFixed(2)}s"><span>⌂ Houses liquidated</span><span>${formatMoney(p.final.houseValue)}</span></span>`
+                ? `<span class="final-row" style="animation-delay:${(cd + rowStep * 2).toFixed(2)}s"><span>${svgIcon("house", "final-ic")}Houses liquidated</span><span>${formatMoney(p.final.houseValue)}</span></span>`
                 : "";
             return `
                 <article class="final-card${p.final.rank === 1 ? " winner" : ""}" style="animation-delay:${cd.toFixed(2)}s">
                     <div class="final-card-head">
                         <span class="final-rank">#${p.final.rank}</span>
+                        ${p.final.rank === 1 ? svgIcon("trophy", "final-trophy") : ""}
                         <strong>${escapeHtml(p.name)}</strong>
                     </div>
                     <div class="final-breakdown">
                         ${carRow}
                         ${houseRow}
-                        <span class="final-row" style="animation-delay:${(cd + rowStep * 3).toFixed(2)}s"><span>$ Cash</span><span>${formatMoney(p.money)}</span></span>
+                        <span class="final-row" style="animation-delay:${(cd + rowStep * 3).toFixed(2)}s"><span>${svgIcon("cash", "final-ic")}Cash</span><span>${formatMoney(p.money)}</span></span>
                         <span class="final-row" style="animation-delay:${(cd + rowStep * 4).toFixed(2)}s"><span>Net worth</span><strong>${formatMoney(p.final.netWorth)}</strong></span>
                         <span class="final-row" style="animation-delay:${(cd + rowStep * 5).toFixed(2)}s"><span>÷ ${formatMoney(state.finalRatio)}/pt</span><span>→ +${formatNumber(p.final.convertedLife)} LP</span></span>
-                        <span class="final-row" style="animation-delay:${(cd + rowStep * 6).toFixed(2)}s"><span>♥ Game LIFE</span><span>${formatNumber(p.lifePoints)}</span></span>
+                        <span class="final-row" style="animation-delay:${(cd + rowStep * 6).toFixed(2)}s"><span>${svgIcon("heart", "final-ic")}Game LIFE</span><span>${formatNumber(p.lifePoints)}</span></span>
                         <span class="final-row final-total" style="animation-delay:${(cd + rowStep * 7).toFixed(2)}s"><span>Total LIFE Points</span><strong>${formatNumber(p.final.totalLifePoints)}</strong></span>
                     </div>
                 </article>
@@ -1290,9 +1410,10 @@
 
     function createFunctionRing() {
         dom.functionRing.innerHTML = POD_BUTTONS.map((btn, i) => `
-            <button class="ring-button" data-pod-key="${btn.key}" style="--i: ${i}" type="button">
+            <button class="ring-button" data-pod-key="${btn.key}" style="--i: ${i}" type="button" aria-label="${btn.label || btn.number}">
                 <strong>${btn.number}</strong>
-                <span>${btn.label}</span>
+                ${btn.icon ? svgIcon(btn.icon, "ring-ic") : ""}
+                ${btn.label ? `<span class="ring-word">${btn.label}</span>` : ""}
             </button>
         `).join("");
     }
@@ -1309,12 +1430,12 @@
         }
         // Re-render after dialog opens so CSS animations start from zero
         renderFinalResults();
-        // Sell sound fires as each player's asset rows animate in (~rowStep*1 into card)
+        // Sell sound fires as each player's first row appears; fanfare after last player's total
         const n = state.players.length;
         for (let i = 0; i < n; i++) {
-            setTimeout(() => playSound("sell"), i * 1800 + 350);
+            setTimeout(() => playSound("sell"), i * 6400 + 800);
         }
-        setTimeout(() => playSound("lottery-win"), n * 1800 + 400);
+        setTimeout(() => playSound("lottery-win"), n * 6400 + 400);
     }
 
     // ─── In-window confirm dialog ─────────────────────────────────────────────
@@ -1448,6 +1569,7 @@
     // ─── Boot ─────────────────────────────────────────────────────────────────
 
     createFunctionRing();
+    syncVolumeIcon();
     bindEvents();
     saveState();
     registerServiceWorker();
