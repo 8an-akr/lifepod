@@ -5,3 +5,4 @@ android/
 *.apk
 *.aab
 .gradle/
+.claude/

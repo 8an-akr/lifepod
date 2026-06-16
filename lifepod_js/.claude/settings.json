@@ -7,7 +7,9 @@
       "Bash(node scripts/prepare-www.mjs)",
       "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('package.json'\\)\\); JSON.parse\\(require\\('fs'\\).readFileSync\\('capacitor.config.json'\\)\\); JSON.parse\\(require\\('fs'\\).readFileSync\\('manifest.json'\\)\\); console.log\\('all JSON valid'\\)\")",
       "Bash(node --check lifepod.js)",
-      "Read(//c/Users/8an/.claude/projects/c--Users-8an-Desktop-developer-lifepod/memory/**)"
+      "Read(//c/Users/8an/.claude/projects/c--Users-8an-Desktop-developer-lifepod/memory/**)",
+      "Bash(node -e ' *)",
+      "Bash(rm -f _ls_probe.html)"
     ],
     "additionalDirectories": [
       "c:\\Users\\8an\\Desktop\\developer\\lifepod\\.github\\workflows"

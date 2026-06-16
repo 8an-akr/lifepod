@@ -1104,7 +1104,7 @@ select {
         font-size: 0.95rem;
     }
 
-    .ring-button span {
+    .ring-button .ring-word {
         font-size: 0.46rem;
     }
 
@@ -1123,5 +1123,183 @@ select {
         width: 32px;
         height: 24px;
         font-size: 0.95rem;
+    }
+}
+
+/* ── Handheld ("Game Boy") layout for phones ──────────────────────────────
+   The round LIFEpod squeezes the LCD into a tiny center disc on narrow
+   screens. Below 600px we reshape the device into a vertical handheld: a big
+   readable screen on top, with a flat button keypad and chunky action keys
+   underneath. (Placed last so it wins over the round-device rules above.) */
+@media (max-width: 600px) {
+    .device {
+        width: 100%;
+        max-width: 430px;
+        aspect-ratio: auto;
+        border: 1px solid #0e121a;
+        border-radius: 20px 20px 26px 26px;
+        background: linear-gradient(180deg, #2b3344 0%, #222a39 58%, #1b2130 100%);
+        box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        padding: 14px 14px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    /* Flatten the absolutely-positioned core so its children flow in the column */
+    .device-core {
+        display: contents;
+    }
+
+    .card-slot     { order: 1; align-self: center; width: min(72%, 230px); }
+    .screen-row    { order: 2; }
+    .function-ring { order: 3; }
+    .main-controls { order: 4; }
+    .mode-controls { order: 5; }
+
+    /* Big LCD with thumb-sized scroll keys flanking it */
+    .screen {
+        width: auto;
+        height: clamp(180px, 47vw, 260px);
+    }
+    .side-sign {
+        width: clamp(44px, 12vw, 56px);
+        height: auto;
+        align-self: stretch;
+        font-size: 1.6rem;
+    }
+
+    /* Ring buttons become a flat 4-column keypad */
+    .function-ring {
+        position: static;
+        inset: auto;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        width: 100%;
+    }
+    .ring-button {
+        position: static;
+        transform: none;
+        width: auto;
+        aspect-ratio: auto;
+        min-height: 52px;
+        padding: 7px 4px;
+        border-radius: 12px;
+        gap: 2px;
+    }
+    .ring-button strong { font-size: 1.05rem; }
+    .ring-button .ring-word { font-size: 0.5rem; }
+    .ring-ic { width: 15px; height: 15px; }
+    .ring-button.is-lit {
+        transform: scale(1.06);
+    }
+
+    /* Action + mode keys: full-width, evenly split, thumb-friendly */
+    .main-controls,
+    .mode-controls {
+        width: 100%;
+        gap: 8px;
+        flex-wrap: nowrap;
+        justify-content: stretch;
+    }
+    .main-controls .pod-button,
+    .mode-controls .pod-button {
+        flex: 1;
+        min-width: 0;
+        min-height: 50px;
+    }
+}
+
+/* ── Landscape phones ─────────────────────────────────────────────────────
+   A short, wide viewport can't fit the vertical handheld (the screen ends up
+   clipped/off-screen). Lay the handheld on its side: big LCD + action keys on
+   the left, number keypad on the right, so it all fits at once. */
+@media (orientation: landscape) and (max-height: 600px) and (max-width: 960px) {
+    .game-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .device {
+        width: 100%;
+        max-width: 760px;
+        aspect-ratio: auto;
+        border: 1px solid #0e121a;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #2b3344 0%, #222a39 58%, #1b2130 100%);
+        box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        padding: 12px;
+        display: flex;
+        flex-direction: row;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    /* Left column: card slot, big screen, action + mode keys */
+    .device-core {
+        position: static;
+        inset: auto;
+        order: 1;
+        flex: 1 1 0;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .card-slot  { order: 0; align-self: center; width: min(70%, 220px); }
+    .screen-row { order: 0; flex: 1 1 auto; }
+    .screen {
+        width: auto;
+        height: auto;
+        min-height: clamp(120px, 36vh, 200px);
+    }
+    .side-sign {
+        width: clamp(40px, 7vw, 52px);
+        height: auto;
+        align-self: stretch;
+        font-size: 1.45rem;
+    }
+
+    /* Right column: number keypad */
+    .function-ring {
+        position: static;
+        inset: auto;
+        order: 2;
+        flex: 0 0 auto;
+        width: clamp(240px, 40%, 340px);
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        grid-auto-rows: 1fr;
+        gap: 6px;
+        align-content: stretch;
+    }
+    .ring-button {
+        position: static;
+        transform: none;
+        width: auto;
+        aspect-ratio: auto;
+        min-height: 38px;
+        padding: 4px 3px;
+        border-radius: 10px;
+        gap: 1px;
+    }
+    .ring-button strong { font-size: 0.92rem; }
+    .ring-button .ring-word { font-size: 0.44rem; }
+    .ring-ic { width: 13px; height: 13px; }
+    .ring-button.is-lit { transform: scale(1.06); }
+
+    /* Action + mode rows sit under the screen, spanning the left column */
+    .main-controls,
+    .mode-controls {
+        width: 100%;
+        gap: 6px;
+        flex-wrap: nowrap;
+        justify-content: stretch;
+    }
+    .main-controls .pod-button,
+    .mode-controls .pod-button {
+        flex: 1;
+        min-width: 0;
+        min-height: 40px;
     }
 }

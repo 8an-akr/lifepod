@@ -1,4 +1,4 @@
-const CACHE_NAME = "lifepod-replacement-v20";
+const CACHE_NAME = "lifepod-replacement-v22";
 const APP_FILES = [
     "./",
     "./lifepod.html",
