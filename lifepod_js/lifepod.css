@@ -467,7 +467,7 @@ select {
 
 .device {
     /* Phones: fill most of the width so the ring buttons are easy to tap.
-       Wider screens are handled by the min-width: 861px rule below. */
+       Wider screens are handled by the min-width: 1024px rule below. */
     --device-size: clamp(300px, 92vw, 600px);
     position: relative;
     width: var(--device-size);
@@ -574,7 +574,9 @@ select {
     flex: 1;
     min-width: 0;
     width: 0; /* forces flex item to shrink; flex-grow: 1 still fills available space */
-    height: clamp(120px, 12vw, 190px);
+    /* Round-device LCD scales with the dial so it always fits the core (and never
+       gets squeezed so small that the buttons below overflow into the ring). */
+    height: clamp(118px, calc(var(--device-size, 480px) * 0.24), 175px);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -1076,16 +1078,18 @@ select {
     will-change: transform, opacity, filter;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1023px) {
     .game-grid {
         grid-template-columns: 1fr;
     }
 }
 
-@media (min-width: 861px) {
+@media (min-width: 1024px) {
     .device {
-        /* Two-column layout: device takes ~58% of viewport but is capped */
-        --device-size: clamp(400px, 54vw, 640px);
+        /* Two-column layout: device sits beside the player panel. Only enabled
+           from 1024px so the dial is always ≥~550px and the core never squeezes
+           its buttons into the ring. */
+        --device-size: clamp(520px, 54vw, 640px);
     }
 }
 
@@ -1128,10 +1132,8 @@ select {
     .ring-button {
         width: clamp(50px, 15vw, 64px);
     }
-
-    .device-core {
-        inset: 25%;
-    }
+    /* (core inset stays at the base 23% — a smaller inset here squeezed the
+       button rows into the ring on ~600-650px screens) */
 
     .main-controls,
     .mode-controls {
