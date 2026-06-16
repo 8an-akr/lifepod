@@ -57,6 +57,7 @@
 
     const dom = {
         gameView:          document.querySelector("#gameView"),
+        langToggle:        document.querySelector("#langToggle"),
         resetButton:       document.querySelector("#resetButton"),
         saveButton:        document.querySelector("#saveButton"),
         yearsLeft:         document.querySelector("#yearsLeft"),
@@ -87,6 +88,118 @@
         confirmYes:        document.querySelector("#confirmYes"),
         confirmNo:         document.querySelector("#confirmNo")
     };
+
+    // ─── Internationalisation (English / Hebrew, RTL) ─────────────────────────
+    //
+    // All UI text is authored in English. tr() translates at the render boundary:
+    // first an exact-phrase lookup, then ordered substring replacement for the
+    // interpolated strings (so "+$5,000 salary" → "+$5,000 משכורת"). Numbers and
+    // money keep their English/Latin formatting on purpose (the game is dollars).
+
+    const LANG_KEY = "lifepod-lang-v1";
+    let LANG = (() => { try { return localStorage.getItem(LANG_KEY) === "he" ? "he" : "en"; } catch { return "en"; } })();
+    function saveLang() { try { localStorage.setItem(LANG_KEY, LANG); } catch { /* ignore */ } }
+
+    const I18N = {
+        phrases: {
+            // Static chrome
+            "Twists & Turns": "תפניות ופיתולים", "Reset": "איפוס",
+            "2 Players": "2 שחקנים", "3 Players": "3 שחקנים", "4 Players": "4 שחקנים",
+            "Years left": "שנים שנותרו", "Active card": "כרטיס פעיל", "Last spin": "סיבוב אחרון",
+            "Visa Cards": "כרטיסי ויזה", "Save": "שמור", "Ledger": "יומן", "Clear view": "נקה תצוגה",
+            "Final LIFE Points": "נקודות חיים סופיות", "Close": "סגור", "Cancel": "ביטול", "Confirm": "אישור",
+            "ENTER": "אישור", "SPIN": "סיבוב", "UNDO": "בטל", "LIFE POINTS": "נקודות חיים", "LIFE": "חיים",
+            // Ring labels
+            "SALARY": "משכורת", "LOTTERY": "הגרלה", "CHANCE": "מזל", "MARRIAGE": "נישואין",
+            "HOUSE": "בית", "CAR": "רכב", "BABY": "תינוק", "VOLUME": "עוצמה", "YEARS": "שנים",
+            // LCD modes / status
+            "NO CARD": "אין כרטיס", "No card": "אין כרטיס", "READY": "מוכן", "Ready": "מוכן",
+            "Card": "כרטיס", "Money": "כסף", "Salary": "משכורת", "LIFE Points": "נקודות חיים",
+            "Marriage": "נישואין", "Anniversary": "יום נישואין", "Baby": "תינוק", "Twins": "תאומים",
+            "Lottery": "הגרלה", "WINNER": "מנצח!", "GAME OVER": "המשחק נגמר", "Game over": "המשחק נגמר",
+            "Sound": "שמע", "Undo": "ביטול", "Years": "שנים", "Number": "מספר", "Enter": "הזנה",
+            "Saved": "נשמר", "Volume": "עוצמה", "Spin": "סיבוב", "Chance": "מזל", "Marriage / Anniversary": "נישואין",
+            // Common hints
+            "Press SPIN to start turn": "לחץ סיבוב להתחלת התור",
+            "Press SPIN to start your turn": "לחץ סיבוב להתחלת התור",
+            "Tap a Visa card then press SPIN": "הקש כרטיס ויזה ולחץ סיבוב",
+            "Insert card": "הכנס כרטיס", "Enter digits, then ENTER": "הזן ספרות ואז אישור",
+            "Press ENTER to confirm": "לחץ אישור לאישור", "Buy or Sell?": "לקנות או למכור?",
+            "Account updated": "החשבון עודכן", "Total updated": "הסכום עודכן",
+            "New salary starts next spin": "המשכורת החדשה מהסיבוב הבא", "Game length updated": "אורך המשחק עודכן",
+            "Game stored on this device": "המשחק נשמר במכשיר זה",
+            "Tap your card first": "הקש קודם על הכרטיס", "Insert a Visa card first": "הכנס תחילה כרטיס ויזה",
+            "Insert your Visa card to spin": "הכנס כרטיס ויזה לסיבוב",
+            "Insert a Visa card to use this function": "הכנס כרטיס ויזה לשימוש בפעולה",
+            "Cancelled": "בוטל", "Press SPIN or use the ring buttons": "לחץ סיבוב או כפתורי הטבעת",
+            "Nothing to undo": "אין מה לבטל", "History is empty": "ההיסטוריה ריקה",
+            "Restored": "שוחזר", "Last action cancelled": "הפעולה האחרונה בוטלה",
+            "No amount": "אין סכום", "Enter a value before pressing ENTER": "הזן ערך לפני אישור",
+            "Choose action": "בחר פעולה", "Press a function button first": "לחץ תחילה כפתור פונקציה",
+            "Better luck next time": "בהצלחה בפעם הבאה", "Sale paid to card": "התקבול שולם לכרטיס",
+            "No lucky break": "אין מזל", "Success!": "הצלחה!", "All rounds done": "כל הסיבובים הסתיימו",
+            "Tap any card to see final scores": "הקש כרטיס לצפייה בתוצאות",
+            "Insert any card to see final scores": "הכנס כרטיס לצפייה בתוצאות", "Final scoring": "ניקוד סופי",
+            "Claim first": "תבע תחילה", "Year limit": "מגבלת שנה", "Max 2 babies per year": "עד 2 תינוקות בשנה",
+            "Max 9 children": "עד 9 ילדים", "Family limit reached": "הגעת למגבלת המשפחה",
+            "Nothing to buy": "אין מה לקנות", "Nothing to sell": "אין מה למכור",
+            "On": "מופעל", "Muted": "מושתק", "Press VOLUME to unmute": "לחץ עוצמה לביטול השתקה",
+            "Sound effects on": "אפקטי קול פעילים",
+            // Finals / cards
+            "Married": "נשוי", "Cash": "מזומן", "Net worth": "שווי נקי", "Total LIFE Points": "סה״כ נקודות חיים",
+            "Cars liquidated": "רכבים נמכרו", "Houses liquidated": "בתים נמכרו", "Game LIFE": "חיים מהמשחק",
+            // Empty states
+            "No LIFEpod actions yet.": "אין עדיין פעולות.",
+            "Ledger cleared. New actions appear here.": "היומן נוקה. פעולות חדשות יופיעו כאן.",
+            "Final scores will appear here after the last year ends.": "התוצאות יופיעו כאן בתום השנה האחרונה."
+        },
+        // Ordered substring replacements for interpolated strings (longest first).
+        fragments: [
+            ["Mid-sized House", "בית בינוני"], ["Modest House", "בית צנוע"],
+            ["Economy Car", "רכב חסכוני"], ["Luxury Car", "רכב יוקרה"], ["Mansion", "אחוזה"],
+            ["debt interest", "ריבית חוב"], ["LIFE Points", "נקודות חיים"],
+            ["Final LIFE", "חיים סופי"], ["No change", "ללא שינוי"],
+            ["Tap the winning player", "הקש על השחקן הזוכה"],
+            [" salary", " משכורת"], [" interest", " ריבית"], [" spaces", " משבצות"],
+            ["move ", "תזוזה "], ["Bought ", "נקנה "], ["Sold ", "נמכר "],
+            ["won ", "זכה ב-"], [" paid", " שולם"], [" charged", " חויב"],
+            ["Added ", "נוסף "], ["Subtracted ", "הופחת "], [" for ", " תמורת "],
+            ["Player ", "שחקן "], ["'s turn", " תורו"], ["No. ", "מס׳ "],
+            ["Money ", "כסף "], ["Salary ", "משכורת "], [" LIFE", " חיים"],
+            ["Red", "אדום"], ["Blue", "כחול"], ["Green", "ירוק"], ["Yellow", "צהוב"],
+            ["children", "ילדים"], ["child", "ילד"], ["years left", "שנים נותרו"],
+            ["Round complete", "הסיבוב הושלם"], ["won!", "זכה!"]
+        ]
+    };
+
+    function tr(text) {
+        if (LANG === "en" || text == null) return text;
+        const s = String(text);
+        if (s === "") return s;
+        if (Object.prototype.hasOwnProperty.call(I18N.phrases, s)) return I18N.phrases[s];
+        let out = s;
+        for (const [en, he] of I18N.fragments) {
+            if (out.includes(en)) out = out.split(en).join(he);
+        }
+        return out;
+    }
+
+    function applyLang() {
+        const root = document.documentElement;
+        root.lang = LANG;
+        root.dir  = LANG === "he" ? "rtl" : "ltr";
+        document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = tr(el.dataset.i18n); });
+        if (dom.langToggle) dom.langToggle.textContent = LANG === "he" ? "English" : "עברית";
+        createFunctionRing();
+        syncVolumeIcon();
+        render();
+    }
+
+    function toggleLang() {
+        LANG = LANG === "he" ? "en" : "he";
+        saveLang();
+        applyLang();
+    }
 
     // ─── Module-level state ───────────────────────────────────────────────────
 
@@ -1348,7 +1461,7 @@
         dom.playerSwitch.classList.toggle("is-claiming", claiming);
         const cur = activePlayer();
         const hint = claiming
-            ? `<span class="pswitch-hint">🎟 Tap the winning player</span>`
+            ? `<span class="pswitch-hint">🎟 ${tr("Tap the winning player")}</span>`
             : "";
         dom.playerSwitch.innerHTML = hint + state.players.map((p, i) => {
             const color    = VISA_COLORS.find((c) => c.id === p.color);
@@ -1358,7 +1471,7 @@
             return `
                 <button class="pswitch${isActive ? " is-active" : ""}" data-player-index="${i}"
                         style="--card-color: ${color ? color.hex : "#888"}" type="button"
-                        aria-label="Switch to ${escapeHtml(p.name)}"${isActive ? ' aria-current="true"' : ""}>
+                        aria-label="${escapeHtml(tr(p.name))}"${isActive ? ' aria-current="true"' : ""}>
                     <span class="pswitch-dot"></span>
                     <span class="pswitch-name">P${num}</span>
                     <span class="pswitch-cash">${formatMoney(p.money)}</span>
@@ -1370,12 +1483,12 @@
         const p = activePlayer();
         dom.yearsLeft.textContent = state.yearsLeft;
         if (p) {
-            dom.activeCard.textContent = `${p.colorName} ${p.card}`;
-            dom.cardSlot.textContent   = `${p.colorName.toUpperCase()} ${p.card}`;
+            dom.activeCard.textContent = `${tr(p.colorName)} ${p.card}`;
+            dom.cardSlot.textContent   = `${tr(p.colorName).toUpperCase()} ${p.card}`;
             dom.cardSlot.style.setProperty("--active-card-color", VISA_COLORS.find((c) => c.id === p.color).hex);
         } else {
-            dom.activeCard.textContent = "No card";
-            dom.cardSlot.textContent   = "NO CARD";
+            dom.activeCard.textContent = tr("No card");
+            dom.cardSlot.textContent   = tr("NO CARD");
             dom.cardSlot.style.removeProperty("--active-card-color");
         }
         dom.lastSpin.textContent = state.lastSpin
@@ -1393,20 +1506,20 @@
             const isActive = cur && p.id === cur.id;
             const isWinner = p.final?.rank === 1;
             const finalHtml = p.final
-                ? `<span class="stat-row final-stat-row"><span>${isWinner ? svgIcon("trophy", "final-trophy") : ""}#${p.final.rank} Final LIFE</span><strong class="final-pts">${formatNumber(p.final.totalLifePoints)}</strong></span>`
+                ? `<span class="stat-row final-stat-row"><span>${isWinner ? svgIcon("trophy", "final-trophy") : ""}#${p.final.rank} ${tr("Final LIFE")}</span><strong class="final-pts">${formatNumber(p.final.totalLifePoints)}</strong></span>`
                 : "";
             return `
                 <button class="player-card${isActive ? " is-active" : ""}${isWinner ? " is-winner-card" : ""}" data-player-index="${i}" style="--card-color: ${color.hex}" type="button">
                     <span class="card-band"></span>
                     <span class="player-card-head">
-                        <strong>${escapeHtml(p.name)}</strong>
-                        <small>${p.colorName} ${p.card}${p.career ? " · " + escapeHtml(p.career) : ""}</small>
+                        <strong>${escapeHtml(tr(p.name))}</strong>
+                        <small>${tr(p.colorName)} ${p.card}${p.career ? " · " + escapeHtml(tr(p.career)) : ""}</small>
                     </span>
-                    <span class="stat-row"><span>Money</span><strong data-stat="money">${formatMoney(p.money)}</strong></span>
-                    <span class="stat-row"><span>LIFE</span><strong data-stat="life">${formatNumber(p.lifePoints)}</strong></span>
-                    <span class="stat-row"><span>Salary</span><strong>${formatMoney(p.salary)}</strong></span>
+                    <span class="stat-row"><span>${tr("Money")}</span><strong data-stat="money">${formatMoney(p.money)}</strong></span>
+                    <span class="stat-row"><span>${tr("LIFE")}</span><strong data-stat="life">${formatNumber(p.lifePoints)}</strong></span>
+                    <span class="stat-row"><span>${tr("Salary")}</span><strong>${formatMoney(p.salary)}</strong></span>
                     <span class="asset-line">
-                        ${p.married ? `<span class="asset-chip is-married">${svgIcon("rings", "asset-ic")} Married</span>` : ""}
+                        ${p.married ? `<span class="asset-chip is-married">${svgIcon("rings", "asset-ic")} ${tr("Married")}</span>` : ""}
                         <span class="asset-chip" title="Children">${svgIcon("baby", "asset-ic")} ${p.children}</span>
                         <span class="asset-chip" title="Cars">${svgIcon("car", "asset-ic")} ${p.cars.length}${carVal ? " · " + formatMoney(carVal) : ""}</span>
                         <span class="asset-chip" title="Houses">${svgIcon("house", "asset-ic")} ${p.houses.length}${houseVal ? " · " + formatMoney(houseVal) : ""}</span>
@@ -1421,15 +1534,15 @@
         if (!state) return;
         // Banner: mode label + value (a word OR a picture) + hint.
         // Overflowing words scroll via applyMarquee so the full phrase is readable.
-        dom.screenMode.textContent = state.screen.mode;
+        dom.screenMode.textContent = tr(state.screen.mode);
         if (state.screen.icon) {
-            dom.screenValue.innerHTML = lcdPic(state.screen.icon, state.screen.value);
+            dom.screenValue.innerHTML = lcdPic(state.screen.icon, tr(state.screen.value));
             dom.lcdBanner?.classList.add("has-pic");
         } else {
-            dom.screenValue.innerHTML = `<span class="marq">${escapeHtml(state.screen.value ?? "")}</span>`;
+            dom.screenValue.innerHTML = `<span class="marq">${escapeHtml(tr(state.screen.value ?? ""))}</span>`;
             dom.lcdBanner?.classList.remove("has-pic");
         }
-        dom.screenHint.innerHTML = `<span class="marq">${escapeHtml(state.screen.hint ?? "")}</span>`;
+        dom.screenHint.innerHTML = `<span class="marq">${escapeHtml(tr(state.screen.hint ?? ""))}</span>`;
         applyMarquee(dom.screenValue);
         applyMarquee(dom.screenHint);
 
@@ -1470,11 +1583,11 @@
 
     function renderLedger() {
         if (ledgerFilterCleared) {
-            dom.ledger.innerHTML = `<p class="empty-state">Ledger cleared. New actions appear here.</p>`;
+            dom.ledger.innerHTML = `<p class="empty-state">${tr("Ledger cleared. New actions appear here.")}</p>`;
             return;
         }
         if (!state.ledger.length) {
-            dom.ledger.innerHTML = `<p class="empty-state">No LIFEpod actions yet.</p>`;
+            dom.ledger.innerHTML = `<p class="empty-state">${tr("No LIFEpod actions yet.")}</p>`;
             return;
         }
         dom.ledger.innerHTML = state.ledger.slice(0, 60).map((entry) => {
@@ -1483,9 +1596,9 @@
                 <article class="ledger-entry${entry.isError ? " is-error" : ""}">
                     <time>${new Date(entry.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>
                     <div>
-                        <strong>${escapeHtml(entry.action)}</strong>
-                        <span>${p ? escapeHtml(p.name) + ": " : ""}${escapeHtml(entry.detail)}</span>
-                        ${entry.before && entry.after ? `<small>${ledgerDelta(entry.before, entry.after)}</small>` : ""}
+                        <strong>${escapeHtml(tr(entry.action))}</strong>
+                        <span>${p ? escapeHtml(tr(p.name)) + ": " : ""}${escapeHtml(tr(entry.detail))}</span>
+                        ${entry.before && entry.after ? `<small>${escapeHtml(tr(ledgerDelta(entry.before, entry.after)))}</small>` : ""}
                     </div>
                 </article>
             `;
@@ -1522,7 +1635,7 @@
     function renderFinalResults() {
         if (!state) return;
         if (!state.finalCalculated) {
-            dom.finalResults.innerHTML = `<p class="microcopy">Final scores will appear here after the last year ends.</p>`;
+            dom.finalResults.innerHTML = `<p class="microcopy">${tr("Final scores will appear here after the last year ends.")}</p>`;
             return;
         }
         const sorted  = [...state.players].sort((a, b) => b.final.totalLifePoints - a.final.totalLifePoints);
@@ -1532,26 +1645,26 @@
         dom.finalResults.innerHTML = sorted.map((p, i) => {
             const cd       = i * cardGap;
             const carRow   = p.final.carValue > 0
-                ? `<span class="final-row" style="animation-delay:${(cd + rowStep).toFixed(2)}s"><span>${svgIcon("car", "final-ic")}Cars liquidated</span><span>${formatMoney(p.final.carValue)}</span></span>`
+                ? `<span class="final-row" style="animation-delay:${(cd + rowStep).toFixed(2)}s"><span>${svgIcon("car", "final-ic")}${tr("Cars liquidated")}</span><span>${formatMoney(p.final.carValue)}</span></span>`
                 : "";
             const houseRow = p.final.houseValue > 0
-                ? `<span class="final-row" style="animation-delay:${(cd + rowStep * 2).toFixed(2)}s"><span>${svgIcon("house", "final-ic")}Houses liquidated</span><span>${formatMoney(p.final.houseValue)}</span></span>`
+                ? `<span class="final-row" style="animation-delay:${(cd + rowStep * 2).toFixed(2)}s"><span>${svgIcon("house", "final-ic")}${tr("Houses liquidated")}</span><span>${formatMoney(p.final.houseValue)}</span></span>`
                 : "";
             return `
                 <article class="final-card${p.final.rank === 1 ? " winner" : ""}" style="animation-delay:${cd.toFixed(2)}s">
                     <div class="final-card-head">
                         <span class="final-rank">#${p.final.rank}</span>
                         ${p.final.rank === 1 ? svgIcon("trophy", "final-trophy") : ""}
-                        <strong>${escapeHtml(p.name)}</strong>
+                        <strong>${escapeHtml(tr(p.name))}</strong>
                     </div>
                     <div class="final-breakdown">
                         ${carRow}
                         ${houseRow}
-                        <span class="final-row" style="animation-delay:${(cd + rowStep * 3).toFixed(2)}s"><span>${svgIcon("cash", "final-ic")}Cash</span><span>${formatMoney(p.money)}</span></span>
-                        <span class="final-row" style="animation-delay:${(cd + rowStep * 4).toFixed(2)}s"><span>Net worth</span><strong>${formatMoney(p.final.netWorth)}</strong></span>
+                        <span class="final-row" style="animation-delay:${(cd + rowStep * 3).toFixed(2)}s"><span>${svgIcon("cash", "final-ic")}${tr("Cash")}</span><span>${formatMoney(p.money)}</span></span>
+                        <span class="final-row" style="animation-delay:${(cd + rowStep * 4).toFixed(2)}s"><span>${tr("Net worth")}</span><strong>${formatMoney(p.final.netWorth)}</strong></span>
                         <span class="final-row" style="animation-delay:${(cd + rowStep * 5).toFixed(2)}s"><span>÷ ${formatMoney(state.finalRatio)}/pt</span><span>→ +${formatNumber(p.final.convertedLife)} LP</span></span>
-                        <span class="final-row" style="animation-delay:${(cd + rowStep * 6).toFixed(2)}s"><span>${svgIcon("heart", "final-ic")}Game LIFE</span><span>${formatNumber(p.lifePoints)}</span></span>
-                        <span class="final-row final-total" style="animation-delay:${(cd + rowStep * 7).toFixed(2)}s"><span>Total LIFE Points</span><strong>${formatNumber(p.final.totalLifePoints)}</strong></span>
+                        <span class="final-row" style="animation-delay:${(cd + rowStep * 6).toFixed(2)}s"><span>${svgIcon("heart", "final-ic")}${tr("Game LIFE")}</span><span>${formatNumber(p.lifePoints)}</span></span>
+                        <span class="final-row final-total" style="animation-delay:${(cd + rowStep * 7).toFixed(2)}s"><span>${tr("Total LIFE Points")}</span><strong>${formatNumber(p.final.totalLifePoints)}</strong></span>
                     </div>
                 </article>
             `;
@@ -1560,10 +1673,10 @@
 
     function createFunctionRing() {
         dom.functionRing.innerHTML = POD_BUTTONS.map((btn, i) => `
-            <button class="ring-button" data-pod-key="${btn.key}" style="--i: ${i}" type="button" aria-label="${btn.label || btn.number}">
+            <button class="ring-button" data-pod-key="${btn.key}" style="--i: ${i}" type="button" aria-label="${escapeHtml(tr(btn.label) || btn.number)}">
                 <strong>${btn.number}</strong>
                 ${btn.icon ? svgIcon(btn.icon, "ring-ic") : ""}
-                ${btn.label ? `<span class="ring-word">${btn.label}</span>` : ""}
+                ${btn.label ? `<span class="ring-word">${escapeHtml(tr(btn.label))}</span>` : ""}
             </button>
         `).join("");
     }
@@ -1600,6 +1713,8 @@
     // ─── Event binding ────────────────────────────────────────────────────────
 
     function bindEvents() {
+        dom.langToggle?.addEventListener("click", toggleLang);
+
         dom.resetButton.addEventListener("click", () => {
             if (isAnimating) return;
             const count = Math.max(2, Math.min(4, Number(dom.playerCountSelect.value) || 4));
@@ -1701,11 +1816,9 @@
 
     // ─── Boot ─────────────────────────────────────────────────────────────────
 
-    createFunctionRing();
-    syncVolumeIcon();
     bindEvents();
     saveState();
     registerServiceWorker();
-    render();
+    applyLang(); // sets <html lang/dir>, translates static labels, builds ring + renders
 
 })();

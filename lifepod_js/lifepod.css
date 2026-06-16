@@ -325,9 +325,11 @@ select {
     gap: 8px;
     width: 100%;
     min-height: 156px;
-    padding: 12px 12px 12px 18px;
+    padding-block: 12px;
+    padding-inline: 12px;
+    padding-inline-start: 18px; /* room for the colour band (flips in RTL) */
     overflow: hidden;
-    text-align: left;
+    text-align: start;
     background: white;
     border: 1px solid var(--line);
     border-radius: var(--radius);
@@ -340,7 +342,8 @@ select {
 
 .card-band {
     position: absolute;
-    inset: 0 auto 0 0;
+    inset-block: 0;
+    inset-inline-start: 0; /* band on the start edge — right in RTL */
     width: 7px;
     background: var(--card-color);
 }
@@ -397,6 +400,14 @@ select {
     display: grid;
     justify-items: center;
     min-width: 0;
+    /* The LIFEpod is a physical device: keep its keypad, numbers and LCD in
+       fixed left-to-right order even when the page is mirrored to RTL. */
+    direction: ltr;
+}
+
+.lang-toggle {
+    min-width: 70px;
+    text-align: center;
 }
 
 /* ── Quick player switcher (always visible with the device) ── */
@@ -843,7 +854,7 @@ select {
 .ledger {
     max-height: 380px;
     overflow: auto;
-    padding-right: 4px;
+    padding-inline-end: 4px;
 }
 
 .ledger-entry {
@@ -999,7 +1010,7 @@ select {
 .final-ic {
     width: 1.05em;
     height: 1.05em;
-    margin-right: 5px;
+    margin-inline-end: 5px;
     opacity: 0.7;
     vertical-align: -0.14em;
 }
@@ -1007,7 +1018,7 @@ select {
 .final-trophy {
     width: 1.1em;
     height: 1.1em;
-    margin-right: 5px;
+    margin-inline-end: 5px;
     color: #d39a16;
     vertical-align: -0.14em;
 }

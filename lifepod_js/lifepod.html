@@ -110,16 +110,17 @@
     <div class="app" id="app">
         <header class="topbar">
             <div>
-                <p class="eyebrow">Twists &amp; Turns</p>
+                <p class="eyebrow" data-i18n="Twists &amp; Turns">Twists &amp; Turns</p>
                 <h1>LIFEpod</h1>
             </div>
             <div class="topbar-actions">
+                <button class="small-button lang-toggle" id="langToggle" type="button" aria-label="Switch language">עברית</button>
                 <select id="playerCountSelect" class="player-count-select" aria-label="Players for next game" title="Set number of players, then press Reset">
-                    <option value="2">2 Players</option>
-                    <option value="3">3 Players</option>
-                    <option value="4" selected>4 Players</option>
+                    <option value="2" data-i18n="2 Players">2 Players</option>
+                    <option value="3" data-i18n="3 Players">3 Players</option>
+                    <option value="4" selected data-i18n="4 Players">4 Players</option>
                 </select>
-                <button class="danger-button" id="resetButton" type="button">Reset</button>
+                <button class="danger-button" id="resetButton" type="button" data-i18n="Reset">Reset</button>
             </div>
         </header>
 
@@ -128,15 +129,15 @@
             <section class="game-view" id="gameView" aria-label="LIFEpod game controls">
                 <div class="status-strip">
                     <div>
-                        <span class="status-label">Years left</span>
+                        <span class="status-label" data-i18n="Years left">Years left</span>
                         <strong id="yearsLeft">10</strong>
                     </div>
                     <div>
-                        <span class="status-label">Active card</span>
+                        <span class="status-label" data-i18n="Active card">Active card</span>
                         <strong id="activeCard">—</strong>
                     </div>
                     <div>
-                        <span class="status-label">Last spin</span>
+                        <span class="status-label" data-i18n="Last spin">Last spin</span>
                         <strong id="lastSpin">-</strong>
                     </div>
                 </div>
@@ -145,8 +146,8 @@
                     <!-- LEFT: Visa cards -->
                     <aside class="panel player-panel" aria-labelledby="playersTitle">
                         <div class="panel-heading">
-                            <h2 id="playersTitle">Visa Cards</h2>
-                            <button class="small-button" id="saveButton" type="button">Save</button>
+                            <h2 id="playersTitle" data-i18n="Visa Cards">Visa Cards</h2>
+                            <button class="small-button" id="saveButton" type="button" data-i18n="Save">Save</button>
                         </div>
                         <div class="player-list" id="playerList"></div>
                     </aside>
@@ -198,15 +199,15 @@
 
                                 <!-- Main controls -->
                                 <div class="main-controls">
-                                    <button class="pod-button enter" data-action="enter" type="button">ENTER</button>
-                                    <button class="pod-button spin"  data-action="spin"  type="button">SPIN</button>
-                                    <button class="pod-button undo"  data-action="undo"  type="button">UNDO</button>
+                                    <button class="pod-button enter" data-action="enter" type="button" data-i18n="ENTER">ENTER</button>
+                                    <button class="pod-button spin"  data-action="spin"  type="button" data-i18n="SPIN">SPIN</button>
+                                    <button class="pod-button undo"  data-action="undo"  type="button" data-i18n="UNDO">UNDO</button>
                                 </div>
 
                                 <!-- Mode controls -->
                                 <div class="mode-controls">
                                     <button class="pod-button money" data-action="mode-money" type="button">$</button>
-                                    <button class="pod-button life"  data-action="mode-life"  type="button">LIFE POINTS</button>
+                                    <button class="pod-button life"  data-action="mode-life"  type="button" data-i18n="LIFE POINTS">LIFE POINTS</button>
                                 </div>
                             </div>
                         </div>
@@ -216,8 +217,8 @@
                 <!-- LEDGER -->
                 <section class="panel ledger-panel" aria-labelledby="ledgerTitle">
                     <div class="panel-heading">
-                        <h2 id="ledgerTitle">Ledger</h2>
-                        <button class="small-button" id="clearLedgerButton" type="button">Clear view</button>
+                        <h2 id="ledgerTitle" data-i18n="Ledger">Ledger</h2>
+                        <button class="small-button" id="clearLedgerButton" type="button" data-i18n="Clear view">Clear view</button>
                     </div>
                     <div class="ledger" id="ledger"></div>
                 </section>
@@ -229,12 +230,12 @@
     <dialog class="modal" id="finalDialog">
         <form method="dialog">
             <div class="panel-heading">
-                <h2>Final LIFE Points</h2>
+                <h2 data-i18n="Final LIFE Points">Final LIFE Points</h2>
                 <button class="icon-button" value="cancel" aria-label="Close final scoring" type="submit">×</button>
             </div>
             <div id="finalResults" class="final-results"></div>
             <menu>
-                <button class="ghost-button" value="cancel" type="submit">Close</button>
+                <button class="ghost-button" value="cancel" type="submit" data-i18n="Close">Close</button>
             </menu>
         </form>
     </dialog>
@@ -244,8 +245,8 @@
         <div class="confirm-body">
             <p id="confirmMessage" class="confirm-msg"></p>
             <menu>
-                <button class="ghost-button" id="confirmNo" type="button">Cancel</button>
-                <button class="danger-button" id="confirmYes" type="button">Confirm</button>
+                <button class="ghost-button" id="confirmNo" type="button" data-i18n="Cancel">Cancel</button>
+                <button class="danger-button" id="confirmYes" type="button" data-i18n="Confirm">Confirm</button>
             </menu>
         </div>
     </dialog>
