@@ -13,15 +13,15 @@
     ];
 
     const CAR_TYPES = {
-        economy: { id: "economy", name: "Economy Car", cost: 10000,  moveBonus: 1, lifePerTurn: 100 },
-        luxury:  { id: "luxury",  name: "Luxury Car",  cost: 50000,  moveBonus: 2, lifePerTurn: 200 }
+        economy: { id: "economy", name: "Economy Car", cost: 10000,  moveBonus: 1, lifePerTurn: 100, icon: "car-economy" },
+        luxury:  { id: "luxury",  name: "Luxury Car",  cost: 50000,  moveBonus: 2, lifePerTurn: 200, icon: "car-luxury"  }
     };
     const CAR_LIST = Object.values(CAR_TYPES);
 
     const HOUSE_TYPES = {
-        modest:   { id: "modest",   name: "Modest House",    cost: 200000  },
-        midsized: { id: "midsized", name: "Mid-sized House", cost: 500000  },
-        mansion:  { id: "mansion",  name: "Mansion",         cost: 1000000 }
+        modest:   { id: "modest",   name: "Modest House",    cost: 200000,  icon: "house-modest"   },
+        midsized: { id: "midsized", name: "Mid-sized House", cost: 500000,  icon: "house-midsized" },
+        mansion:  { id: "mansion",  name: "Mansion",         cost: 1000000, icon: "house-mansion"  }
     };
     const HOUSE_LIST = Object.values(HOUSE_TYPES);
 
@@ -68,6 +68,7 @@
         screenMode:        document.querySelector("#screenMode"),
         screenValue:       document.querySelector("#screenValue"),
         screenHint:        document.querySelector("#screenHint"),
+        lcdBanner:         document.querySelector(".lcd-banner"),
         lcdHouses:         document.querySelector("#lcdHouses"),
         lcdCars:           document.querySelector("#lcdCars"),
         lcdBabies:         document.querySelector("#lcdBabies"),
@@ -534,11 +535,33 @@
         return `<svg class="ic${cls ? " " + cls : ""}" fill="currentColor" aria-hidden="true"><use href="#ic-${name}"/></svg>`;
     }
 
+    // Large labelled picture for the LCD banner (the car/house being bought or sold).
+    function lcdPic(name, label) {
+        return `<svg class="lcd-pic" fill="currentColor" role="img" aria-label="${escapeHtml(label || name)}"><use href="#ic-${name}"/></svg>`;
+    }
+
+    // LCD ticker: if the text in a banner field is wider than the field, scroll it
+    // back and forth so the whole phrase can be read. No-op when it already fits.
+    function applyMarquee(container) {
+        container.classList.remove("is-marquee");
+        const inner = container.querySelector(".marq");
+        if (!inner) return;
+        inner.style.removeProperty("--marq-shift");
+        inner.style.removeProperty("--marq-dur");
+        const overflow = inner.scrollWidth - container.clientWidth;
+        if (overflow > 2) {
+            const shift = overflow + 6;
+            inner.style.setProperty("--marq-shift", `-${shift}px`);
+            inner.style.setProperty("--marq-dur", `${Math.max(5, shift / 16 + 3).toFixed(1)}s`);
+            container.classList.add("is-marquee");
+        }
+    }
+
     // ─── Screen helpers ───────────────────────────────────────────────────────
 
-    function setScreen(mode, value, hint = "") {
+    function setScreen(mode, value, hint = "", icon = null) {
         if (!state) return;
-        state.screen = { mode, value, hint };
+        state.screen = { mode, value, hint, icon };
     }
 
     function clearInput() {
@@ -985,9 +1008,9 @@
         const owned = p.cars.find((oc) => oc.type === car.id);
         const value = owned ? formatMoney(owned.value) : formatMoney(car.cost);
         const hint  = subMode === "buy" && owned
-            ? `Already owned (${value}) · − to scroll`
-            : `${value} · ENTER to ${subMode}`;
-        setScreen(`CAR ${subMode.toUpperCase()}`, car.name, hint);
+            ? `${car.name} · already owned (${value}) · − to scroll`
+            : `${car.name} · ${value} · ENTER to ${subMode}`;
+        setScreen(`CAR ${subMode.toUpperCase()}`, car.name, hint, car.icon);
         renderScreen();
     }
 
@@ -1091,9 +1114,9 @@
         const owned = p.houses.find((oh) => oh.type === house.id);
         const value = owned ? formatMoney(owned.value) : formatMoney(house.cost);
         const hint  = subMode === "buy" && owned
-            ? `Already owned (${value}) · − to scroll`
-            : `${value} · ENTER to ${subMode}`;
-        setScreen(`HOUSE ${subMode.toUpperCase()}`, house.name, hint);
+            ? `${house.name} · already owned (${value}) · − to scroll`
+            : `${house.name} · ${value} · ENTER to ${subMode}`;
+        setScreen(`HOUSE ${subMode.toUpperCase()}`, house.name, hint, house.icon);
         renderScreen();
     }
 
@@ -1281,10 +1304,19 @@
 
     function renderScreen() {
         if (!state) return;
-        // Banner
-        dom.screenMode.textContent  = state.screen.mode;
-        dom.screenValue.textContent = state.screen.value;
-        dom.screenHint.textContent  = state.screen.hint;
+        // Banner: mode label + value (a word OR a picture) + hint.
+        // Overflowing words scroll via applyMarquee so the full phrase is readable.
+        dom.screenMode.textContent = state.screen.mode;
+        if (state.screen.icon) {
+            dom.screenValue.innerHTML = lcdPic(state.screen.icon, state.screen.value);
+            dom.lcdBanner?.classList.add("has-pic");
+        } else {
+            dom.screenValue.innerHTML = `<span class="marq">${escapeHtml(state.screen.value ?? "")}</span>`;
+            dom.lcdBanner?.classList.remove("has-pic");
+        }
+        dom.screenHint.innerHTML = `<span class="marq">${escapeHtml(state.screen.hint ?? "")}</span>`;
+        applyMarquee(dom.screenValue);
+        applyMarquee(dom.screenHint);
 
         // LCD stat rows — always show active player's live stats
         const p   = activePlayer();

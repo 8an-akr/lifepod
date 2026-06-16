@@ -1,0 +1,7 @@
+# Capacitor / Android build artifacts — all generated, never committed
+node_modules/
+www/
+android/
+*.apk
+*.aab
+.gradle/

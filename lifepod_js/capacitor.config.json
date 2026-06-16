@@ -1,0 +1,8 @@
+{
+  "appId": "com.lifepod.twistsandturns",
+  "appName": "LIFEpod",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#151820"
+  }
+}

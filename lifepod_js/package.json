@@ -1,0 +1,19 @@
+{
+  "name": "lifepod",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LIFEpod replacement for The Game of LIFE: Twists & Turns — Capacitor wrapper for building an offline Android APK.",
+  "scripts": {
+    "prepare:www": "node scripts/prepare-www.mjs",
+    "sync": "npm run prepare:www && npx cap sync android",
+    "icons": "npx capacitor-assets generate --android --iconBackgroundColor \"#151820\" --iconBackgroundColorDark \"#151820\""
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.1.2"
+  }
+}

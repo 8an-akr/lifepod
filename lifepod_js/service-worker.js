@@ -1,11 +1,14 @@
-const CACHE_NAME = "lifepod-replacement-v18";
+const CACHE_NAME = "lifepod-replacement-v20";
 const APP_FILES = [
     "./",
     "./lifepod.html",
     "./lifepod.css",
     "./lifepod.js",
     "./manifest.json",
-    "./icon.svg"
+    "./icon.svg",
+    "./icon-192.png",
+    "./icon-512.png",
+    "./apple-touch-icon.png"
 ];
 
 self.addEventListener("install", (event) => {
