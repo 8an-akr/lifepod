@@ -399,6 +399,72 @@ select {
     min-width: 0;
 }
 
+/* ── Quick player switcher (always visible with the device) ── */
+.player-switch {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    width: min(100%, 540px);
+    margin-bottom: 12px;
+}
+
+.pswitch {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 40px;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink);
+    font-weight: 800;
+    font-size: 0.82rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.pswitch-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--card-color);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+    flex-shrink: 0;
+}
+
+.pswitch-name { font-weight: 900; }
+
+.pswitch-cash {
+    color: var(--muted);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.pswitch.is-active {
+    border-color: var(--card-color);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--card-color) 32%, transparent);
+    background: color-mix(in srgb, var(--card-color) 12%, white);
+}
+
+.pswitch-hint {
+    width: 100%;
+    text-align: center;
+    font-weight: 800;
+    color: var(--accent);
+    font-size: 0.86rem;
+}
+
+.player-switch.is-claiming .pswitch {
+    animation: pswitch-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes pswitch-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 transparent; border-color: var(--line); }
+    50%      { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); border-color: var(--accent); }
+}
+
 .device {
     /* Phones: fill most of the width so the ring buttons are easy to tap.
        Wider screens are handled by the min-width: 861px rule below. */

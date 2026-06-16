@@ -63,6 +63,7 @@
         activeCard:        document.querySelector("#activeCard"),
         lastSpin:          document.querySelector("#lastSpin"),
         playerList:        document.querySelector("#playerList"),
+        playerSwitch:      document.querySelector("#playerSwitch"),
         functionRing:      document.querySelector("#functionRing"),
         cardSlot:          document.querySelector("#cardSlot"),
         screenMode:        document.querySelector("#screenMode"),
@@ -340,6 +341,7 @@
             activePlayerIndex: 0,
             lastSpin:     null,
             lotteryPot:   10000,
+            lotteryStarter: null,
             finalRatio:   randomInt(80, 120),
             finalCalculated: false,
             input: { mode: "ready", sign: 1, buffer: "", subMode: null, index: 0 },
@@ -375,9 +377,11 @@
 
     function normalizeState(s) {
         if (!s) return null;
-        s.activePlayerIndex ??= 0;
+        // Preserve an explicit null (e.g. lottery awaiting a winner); only fill when missing.
+        if (s.activePlayerIndex === undefined) s.activePlayerIndex = 0;
         s.turnsThisYear     ??= 0;
         s.lotteryPot        ??= 10000;
+        s.lotteryStarter    ??= null;
         s.finalRatio        ??= randomInt(80, 120);
         s.finalCalculated   ??= false;
         s.input    ??= { mode: "ready", sign: 1, buffer: "", subMode: null, index: 0 };
@@ -493,7 +497,16 @@
         clearLitButtons();
         const selModes = ["car-select","house-select","car-buyorsell","house-buyorsell","lottery-pending"];
         if (selModes.includes(state.input.mode)) {
-            if (state.activePlayerIndex == null) state.activePlayerIndex = 0;
+            if (state.input.mode === "lottery-pending") {
+                // Cancelling the lottery → hand control back to whoever started it.
+                state.activePlayerIndex = (state.lotteryStarter != null && state.players[state.lotteryStarter])
+                    ? state.lotteryStarter : 0;
+                state.lotteryStarter = null;
+                logInfo("Lottery", "Cancelled — no winner this round");
+            } else if (state.activePlayerIndex == null) {
+                state.activePlayerIndex = 0;
+            }
+            logInfo("Cancelled", `Closed "${state.input.mode}"`);
             clearInput();
             setScreen("Ready", "Cancelled", "Press SPIN or use the ring buttons");
             renderScreen();
@@ -519,6 +532,39 @@
         return state.players[state.activePlayerIndex] ?? null;
     }
     function getPlayer(id)  { return state.players.find((p) => p.id === id); }
+
+    // Single entry point for picking a player — used by both the side Visa cards
+    // and the always-visible switcher chips, so switching is consistent and never
+    // requires scrolling. Cancels any open menu and records the switch.
+    function switchToPlayer(idx) {
+        if (!state || isAnimating) return;
+        if (idx == null || !state.players[idx]) { ledgerLog("⚠ Switch", `No player at slot ${idx}`); return; }
+
+        // Lottery in progress → tapping a player claims the pot for them.
+        if (state.input.mode === "lottery-pending") { awardLottery(idx); return; }
+
+        const openMode = state.input.mode;
+        if (openMode && openMode !== "ready") logInfo("Cancelled", `Closed "${openMode}" to switch players`);
+
+        clearLitButtons();
+        state.activePlayerIndex = idx;
+        clearInput();
+        const name = state.players[idx].name;
+        setScreen("Card", name, "Press SPIN to start turn");
+        logInfo("Card", `${name} is now active`);
+        saveState();
+        render();
+
+        dom.cardSlot.classList.remove("is-inserting");
+        void dom.cardSlot.offsetWidth;
+        dom.cardSlot.classList.add("is-inserting");
+        playSound("card-insert");
+
+        // First card inserted after the last year ends → roll the finale.
+        if (state.yearsLeft === 0 && !state.finalCalculated) {
+            setTimeout(() => { showFinalDialog(); }, 900);
+        }
+    }
 
     // ─── Formatting ───────────────────────────────────────────────────────────
 
@@ -575,6 +621,11 @@
     // ─── Digit / numeric entry ────────────────────────────────────────────────
 
     function setInputMode(mode, sign = 1) {
+        if (!state) return;
+        if (state.input.mode === "lottery-pending") {
+            ledgerLog("⚠ Lottery", `Resolve the lottery before entering ${mode}`);
+            renderScreen(); playSound("error"); return;
+        }
         state.input = { mode, sign, buffer: "", subMode: null, index: 0 };
         setScreen(inputModeLabel(), sign < 0 ? "−" : "+", "Enter digits, then ENTER");
         renderScreen();
@@ -698,7 +749,7 @@
 
     function spinTurn() {
         if (isAnimating) return;
-        if (state?.input.mode === "lottery-pending") { growLottery(); return; }
+        if (state?.input.mode === "lottery-pending") { lotterySpin(); return; }
         // Cancel any open buy/sell selection — lets the player abandon and just spin
         if (state && ["car-select","house-select","car-buyorsell","house-buyorsell"].includes(state.input.mode)) {
             clearInput();
@@ -718,58 +769,51 @@
         const targetPos  = SPIN_INDICES.indexOf(baseSpin); // index in [1..10] array
 
         animateOptions(SPIN_INDICES, targetPos, () => {
-            commit("Spin", `Player spun ${baseSpin}`, () => {
-                const p = activePlayer();
-                if (!p) { ledgerLog("⚠ Spin Error", "No active player when spin landed — undo and retry"); return; }
+            const p = activePlayer();
+            if (!p) {
+                ledgerLog("⚠ Spin Error", "No active player when the spin landed — tap a card, then SPIN");
+                playSound("error"); return;
+            }
 
-                // 1. Debt interest: 10% of abs(negative balance) deducted first
-                let interest = 0;
-                if (p.money < 0) {
-                    interest = Math.ceil(Math.abs(p.money) * 0.1);
-                    p.money -= interest;
-                }
+            // Pre-compute this turn's economics from the pre-spin state so the
+            // exact breakdown can go in the ledger AND be applied consistently.
+            const interest     = p.money < 0 ? Math.ceil(Math.abs(p.money) * 0.1) : 0;
+            const childPenalty = Math.min(p.children * 0.1, 0.4);   // 10%/kid, cap 40%
+            const carPenalty   = p.cars.length * 0.1;               // 10%/car
+            const totalPenalty = Math.min(childPenalty + carPenalty, 1.0);
+            const salaryPaid   = Math.round(p.salary * (1 - totalPenalty));
+            const carLife      = p.cars.reduce((s, c) => s + (CAR_TYPES[c.type]?.lifePerTurn ?? 0), 0);
+            const totalLife    = carLife + p.houses.length * 100 + (p.married ? 1500 : 0) + p.children * 350;
+            const moveBonus    = p.cars.reduce((s, c) => s + (CAR_TYPES[c.type]?.moveBonus ?? 0), 0);
+            const totalMove    = baseSpin + moveBonus;
 
-                // 2. Salary: reduced 10% per child (max 40%) AND 10% per car (no stated max)
-                const childPenalty = Math.min(p.children * 0.1, 0.4);
-                const carPenalty   = p.cars.length * 0.1;
-                const totalPenalty = Math.min(childPenalty + carPenalty, 1.0);
-                const salaryPaid   = Math.round(p.salary * (1 - totalPenalty));
-                p.money += salaryPaid;
+            const detail = [
+                moveBonus ? `move ${baseSpin}+${moveBonus}=${totalMove}` : `move ${baseSpin}`,
+                `+${formatMoney(salaryPaid)} salary`,
+                interest ? `−${formatMoney(interest)} debt interest` : null,
+                `+${formatNumber(totalLife)} LIFE`
+            ].filter(Boolean).join(" · ");
 
-                // 3. Recurring LIFE Points: cars + houses + marriage + children
-                const carLife      = p.cars.reduce((s, c) => s + (CAR_TYPES[c.type]?.lifePerTurn ?? 0), 0);
-                const houseLife    = p.houses.length * 100;
-                const marriageLife = p.married ? 1500 : 0;
-                const childLife    = p.children * 350;
-                p.lifePoints += carLife + houseLife + marriageLife + childLife;
+            commit("Spin", detail, () => {
+                const pl = activePlayer();
+                if (!pl) return;
+                pl.money      -= interest;     // debt interest first (from pre-spin balance)
+                pl.money      += salaryPaid;   // then salary
+                pl.lifePoints += totalLife;    // recurring LIFE from assets/family
+                ageCars(pl);
+                ageHouses(pl);
+                state.lastSpin = { playerId: pl.id, base: baseSpin, bonus: moveBonus, total: totalMove };
 
-                // 4. Age assets
-                ageCars(p);
-                ageHouses(p);
-
-                // 5. Move bonus from cars
-                const moveBonus = p.cars.reduce((s, c) => s + (CAR_TYPES[c.type]?.moveBonus ?? 0), 0);
-                const totalMove = baseSpin + moveBonus;
-                state.lastSpin  = { playerId: p.id, base: baseSpin, bonus: moveBonus, total: totalMove };
-
-                // 6. Count turns; decrement year after all players have spun once
+                // Count turns; decrement the year once everyone has spun this round.
                 state.turnsThisYear += 1;
                 if (state.turnsThisYear >= state.players.length) {
                     state.turnsThisYear = 0;
                     state.yearsLeft = Math.max(0, state.yearsLeft - 1);
-                    state.players.forEach((pl) => { pl.babiesThisYear = 0; });
+                    state.players.forEach((x) => { x.babiesThisYear = 0; });
+                    logInfo("Year", `Round complete — ${state.yearsLeft} year${state.yearsLeft === 1 ? "" : "s"} left`);
                 }
-                // Player does NOT advance here — they stay active to do board actions.
-                // The next player taps their own card to switch.
-
-                const totalLife = carLife + houseLife + marriageLife + childLife;
-                const hint = [
-                    moveBonus ? `Roll ${baseSpin}+${moveBonus}` : `Roll ${baseSpin}`,
-                    `${formatMoney(salaryPaid)} salary`,
-                    interest  ? `−${formatMoney(interest)} interest` : null,
-                    `+${formatNumber(totalLife)} LIFE`
-                ].filter(Boolean).join(" · ");
-                setScreen("SPIN", `${totalMove} spaces`, hint);
+                // Player stays active for board actions; the next player taps to switch.
+                setScreen("SPIN", `${totalMove} spaces`, detail);
             });
             playSound("money-add");
             if (state.yearsLeft === 0) {
@@ -812,7 +856,11 @@
     // Result 0 = fail, 1 or 2 = success.
 
     function chance() {
-        if (isAnimating) return;
+        if (isAnimating || !state) return;
+        if (state.input.mode === "lottery-pending") {
+            ledgerLog("⚠ Lottery", "Resolve the lottery before taking a chance");
+            renderScreen(); playSound("error"); return;
+        }
         const roll      = randomInt(0, 2);
         const targetPos = CHANCE_INDICES.indexOf(roll); // 0→0, 1→1, 2→2
 
@@ -833,11 +881,24 @@
     //   no winner → press − to grow pot
 
     function lotterySpin() {
-        if (isAnimating) return;
-        // Cancel any open buy/sell selection before starting the lottery
-        if (state && ["car-select","house-select","car-buyorsell","house-buyorsell"].includes(state.input.mode)) {
-            clearInput();
+        if (isAnimating || !state) return;
+        const reroll = state.input.mode === "lottery-pending";
+
+        if (reroll) {
+            // No winner last time → pot grows and we draw a new number.
+            state.lotteryPot += 10000;
+            logInfo("Lottery", `No winner — pot grows to ${formatMoney(state.lotteryPot)}, re-spinning`);
+        } else {
+            // Fresh lottery: remember whose turn it is so we can hand control back,
+            // and abandon any half-open buy/sell menu.
+            if (["car-select","house-select","car-buyorsell","house-buyorsell"].includes(state.input.mode)) {
+                logInfo("Cancelled", `Closed "${state.input.mode}" to start the lottery`);
+                clearInput();
+            }
+            state.lotteryStarter = state.activePlayerIndex;
+            logInfo("Lottery", `Started by ${state.players[state.activePlayerIndex]?.name ?? "—"} · pot ${formatMoney(state.lotteryPot)}`);
         }
+
         const winning   = randomInt(1, 10);
         const targetPos = SPIN_INDICES.indexOf(winning);
 
@@ -847,7 +908,7 @@
         dom.activeCard.textContent  = "Lottery";
         dom.screenMode.textContent  = "LOTTERY";
         dom.screenValue.textContent = "Spinning…";
-        dom.screenHint.textContent  = "Watch the wheel · Tap card to claim";
+        dom.screenHint.textContent  = "Watch the wheel · tap the winner below";
         dom.lcdHouses.textContent = dom.lcdCars.textContent = dom.lcdBabies.textContent = "–";
         dom.lcdMoney.textContent  = dom.lcdLife.textContent = "–––––";
         dom.lcdMarried.classList.remove("is-on");
@@ -856,36 +917,36 @@
 
         animateOptions(SPIN_INDICES, targetPos, () => {
             const pot = state.lotteryPot;
-            commit("Lottery", `Winning number ${winning}; pot ${formatMoney(pot)}`, () => {
+            commit("Lottery", `Winning number ${winning} · pot ${formatMoney(pot)}`, () => {
                 state.input = { mode: "lottery-pending", sign: 1, buffer: "", subMode: null, index: 0 };
                 state.activePlayerIndex = null;
-                setScreen("LOTTERY", String(winning), `${formatMoney(pot)} · Tap card to claim · SPIN if no winner`);
+                setScreen("LOTTERY", `No. ${winning}`,
+                    `${formatMoney(pot)} · tap the winning player · SPIN re-rolls · UNDO cancels`);
             });
+            logInfo("Lottery", `Drew ${winning}. Tap the player who called it, or SPIN to re-roll.`);
         }, "tick");
     }
 
     function awardLottery(playerIndex) {
+        if (!state) return;
         const winner = state.players[playerIndex];
-        if (!winner) return;
-        const pot = state.lotteryPot;
+        if (!winner) { ledgerLog("⚠ Lottery", `No player at slot ${playerIndex} to award`); return; }
+        const pot     = state.lotteryPot;
+        const starter = state.lotteryStarter;
         commit("Lottery Win", `${winner.name} won ${formatMoney(pot)}`, () => {
             const w = state.players[playerIndex];
             if (!w) return;
             w.money += pot;
             state.lotteryPot = 10000;
-            state.activePlayerIndex = playerIndex;
+            // Hand control back to whoever's turn it was when the lottery began.
+            state.activePlayerIndex = (starter != null && state.players[starter]) ? starter : playerIndex;
+            state.lotteryStarter = null;
             clearInput();
-            setScreen("LOTTERY", w.name, `${formatMoney(pot)} paid!`);
+            const back = state.players[state.activePlayerIndex];
+            setScreen("LOTTERY", `${winner.name} won!`,
+                `${formatMoney(pot)} paid${back ? ` · ${back.name}'s turn` : ""}`);
         });
         playSound("lottery-win");
-    }
-
-    function growLottery() {
-        commit("Lottery Pot", "No winner; pot grows by $10,000", () => {
-            state.lotteryPot += 10000;
-            clearInput();
-            setScreen("Lottery", formatMoney(state.lotteryPot), "Spin again for next winner");
-        });
     }
 
     // ─── MARRIAGE (ring 3) ────────────────────────────────────────────────────
@@ -972,75 +1033,82 @@
     // Luxury:  $50,000, +2 move/turn, +200 LIFE/turn, -$5,000/year for years 1-8,
     //          static years 8-15, then +$5,000/year (classic). Also -10% salary/turn.
 
+    // Menu of items the active player may buy (only those NOT owned) or
+    // sell (only those owned) — so an owned item never appears as a "buy" option
+    // and an unowned item never appears as a "sell" option.
+    function carMenu(p, subMode) {
+        return subMode === "sell"
+            ? CAR_LIST.filter((c) => p.cars.some((oc) => oc.type === c.id))
+            : CAR_LIST.filter((c) => !p.cars.some((oc) => oc.type === c.id));
+    }
+    function houseMenu(p, subMode) {
+        return subMode === "sell"
+            ? HOUSE_LIST.filter((h) => p.houses.some((oh) => oh.type === h.id))
+            : HOUSE_LIST.filter((h) => !p.houses.some((oh) => oh.type === h.id));
+    }
+
     function enterCarMode() {
+        const p = activePlayer();
+        if (!p) return;
         state.input = { mode: "car-buyorsell", sign: 1, buffer: "", subMode: null, index: 0 };
-        setScreen("CAR", "Buy or Sell?", "+ to buy  − to sell  UNDO to cancel");
+        const canBuy  = carMenu(p, "buy").length;
+        const canSell = carMenu(p, "sell").length;
+        setScreen("CAR", "Buy or Sell?",
+            `${canBuy ? "+ buy" : "+ (none to buy)"} · ${canSell ? "− sell" : "− (none to sell)"} · UNDO cancels`);
+        logInfo("Car", `${p.name} opened car menu (${canBuy} to buy, ${canSell} to sell)`);
         renderScreen();
     }
 
     function beginCarSelect(subMode) {
         const p    = activePlayer();
         if (!p) return;
-        const list = subMode === "sell"
-            ? CAR_LIST.filter((c) => p.cars.some((oc) => oc.type === c.id))
-            : CAR_LIST;
+        const list = carMenu(p, subMode);
         if (!list.length) {
-            setScreen("CAR", "No cars to sell", "You don't own any cars");
-            ledgerLog("⚠ Sell Car", "No cars owned to sell");
+            const msg = subMode === "sell" ? "You don't own any cars" : "You already own every car";
+            setScreen("CAR", subMode === "sell" ? "Nothing to sell" : "Nothing to buy",
+                `${msg} · draw a LIFE card instead`);
+            ledgerLog("⚠ Car", `${p.name} cannot ${subMode}: ${msg}`);
             clearInput(); renderScreen(); playSound("error"); return;
         }
-        // In buy mode, skip past already-owned cars so ENTER works on first press
-        const startCarIdx = subMode === "buy"
-            ? Math.max(0, list.findIndex((c) => !p.cars.some((oc) => oc.type === c.id)))
-            : 0;
-        state.input = { mode: "car-select", sign: 1, buffer: "", subMode, index: startCarIdx };
-        showCarOption(subMode, startCarIdx);
+        state.input = { mode: "car-select", sign: 1, buffer: "", subMode, index: 0 };
+        showCarOption(subMode, 0);
     }
 
     function showCarOption(subMode, index) {
         const p    = activePlayer();
         if (!p) return;
-        const list = subMode === "sell"
-            ? CAR_LIST.filter((c) => p.cars.some((oc) => oc.type === c.id))
-            : CAR_LIST;
+        const list  = carMenu(p, subMode);
         const car   = list[index];
         if (!car) return;
         const owned = p.cars.find((oc) => oc.type === car.id);
         const value = owned ? formatMoney(owned.value) : formatMoney(car.cost);
-        const hint  = subMode === "buy" && owned
-            ? `${car.name} · already owned (${value}) · − to scroll`
-            : `${car.name} · ${value} · ENTER to ${subMode}`;
-        setScreen(`CAR ${subMode.toUpperCase()}`, car.name, hint, car.icon);
+        const scroll = list.length > 1 ? " · +/− to scroll" : "";
+        setScreen(`CAR ${subMode.toUpperCase()}`, car.name,
+            `${car.name} · ${value} · ENTER to ${subMode}${scroll}`, car.icon);
         renderScreen();
     }
 
     function scrollCarSelect(dir) {
         const p    = activePlayer();
         if (!p) return;
-        const { subMode } = state.input;
-        const list = subMode === "sell"
-            ? CAR_LIST.filter((c) => p.cars.some((oc) => oc.type === c.id))
-            : CAR_LIST;
+        const list = carMenu(p, state.input.subMode);
+        if (!list.length) return;
         state.input.index = ((state.input.index + dir) % list.length + list.length) % list.length;
-        showCarOption(subMode, state.input.index);
+        showCarOption(state.input.subMode, state.input.index);
     }
 
     function confirmCarSelect() {
         const p           = activePlayer();
         if (!p) return;
         const { subMode } = state.input;
-        const list        = subMode === "sell"
-            ? CAR_LIST.filter((c) => p.cars.some((oc) => oc.type === c.id))
-            : CAR_LIST;
+        const list        = carMenu(p, subMode);
         const car = list[state.input.index];
-        if (!car) { ledgerLog("⚠ Car Select", `Invalid index ${state.input.index} (list has ${list.length} items)`); return; }
+        if (!car) {
+            ledgerLog("⚠ Car Select", `Invalid index ${state.input.index} of ${list.length} — menu cancelled`);
+            clearInput(); renderScreen(); playSound("error"); return;
+        }
+        clearInput();
         if (subMode === "buy") {
-            if (p.cars.some((oc) => oc.type === car.id)) {
-                setScreen("CAR", "Already owned", `You already have the ${car.name} · − to scroll`);
-                ledgerLog("⚠ Already Owned", `${car.name} is already owned by ${p.name}`);
-                renderScreen(); playSound("error"); return;
-            }
-            clearInput();
             commit("Buy Car", `Bought ${car.name} for ${formatMoney(car.cost)}`, () => {
                 const pl = activePlayer();
                 if (!pl) return;
@@ -1050,7 +1118,6 @@
             });
             playSound("buy");
         } else {
-            clearInput();
             sellCar(car.id);
         }
     }
@@ -1079,74 +1146,67 @@
     // Player can own one of each type (max 3 houses).
 
     function enterHouseMode() {
+        const p = activePlayer();
+        if (!p) return;
         state.input = { mode: "house-buyorsell", sign: 1, buffer: "", subMode: null, index: 0 };
-        setScreen("HOUSE", "Buy or Sell?", "+ to buy  − to sell  UNDO to cancel");
+        const canBuy  = houseMenu(p, "buy").length;
+        const canSell = houseMenu(p, "sell").length;
+        setScreen("HOUSE", "Buy or Sell?",
+            `${canBuy ? "+ buy" : "+ (none to buy)"} · ${canSell ? "− sell" : "− (none to sell)"} · UNDO cancels`);
+        logInfo("House", `${p.name} opened house menu (${canBuy} to buy, ${canSell} to sell)`);
         renderScreen();
     }
 
     function beginHouseSelect(subMode) {
         const p    = activePlayer();
         if (!p) return;
-        const list = subMode === "sell"
-            ? HOUSE_LIST.filter((h) => p.houses.some((oh) => oh.type === h.id))
-            : HOUSE_LIST;
+        const list = houseMenu(p, subMode);
         if (!list.length) {
-            setScreen("HOUSE", "No houses to sell", "You don't own any houses");
-            ledgerLog("⚠ Sell House", "No houses owned to sell");
+            const msg = subMode === "sell" ? "You don't own any houses" : "You already own every house";
+            setScreen("HOUSE", subMode === "sell" ? "Nothing to sell" : "Nothing to buy",
+                `${msg} · draw a LIFE card instead`);
+            ledgerLog("⚠ House", `${p.name} cannot ${subMode}: ${msg}`);
             clearInput(); renderScreen(); playSound("error"); return;
         }
-        // In buy mode, skip past already-owned houses so ENTER works on first press
-        const startHouseIdx = subMode === "buy"
-            ? Math.max(0, list.findIndex((h) => !p.houses.some((oh) => oh.type === h.id)))
-            : 0;
-        state.input = { mode: "house-select", sign: 1, buffer: "", subMode, index: startHouseIdx };
-        showHouseOption(subMode, startHouseIdx);
+        state.input = { mode: "house-select", sign: 1, buffer: "", subMode, index: 0 };
+        showHouseOption(subMode, 0);
     }
 
     function showHouseOption(subMode, index) {
-        const p    = activePlayer();
+        const p     = activePlayer();
         if (!p) return;
-        const list = subMode === "sell"
-            ? HOUSE_LIST.filter((h) => p.houses.some((oh) => oh.type === h.id))
-            : HOUSE_LIST;
+        const list  = houseMenu(p, subMode);
         const house = list[index];
         if (!house) return;
         const owned = p.houses.find((oh) => oh.type === house.id);
         const value = owned ? formatMoney(owned.value) : formatMoney(house.cost);
-        const hint  = subMode === "buy" && owned
-            ? `${house.name} · already owned (${value}) · − to scroll`
-            : `${house.name} · ${value} · ENTER to ${subMode}`;
-        setScreen(`HOUSE ${subMode.toUpperCase()}`, house.name, hint, house.icon);
+        const scroll = list.length > 1 ? " · +/− to scroll" : "";
+        setScreen(`HOUSE ${subMode.toUpperCase()}`, house.name,
+            `${house.name} · ${value} · ENTER to ${subMode}${scroll}`, house.icon);
         renderScreen();
     }
 
     function scrollHouseSelect(dir) {
         const p    = activePlayer();
         if (!p) return;
-        const { subMode } = state.input;
-        const list = subMode === "sell"
-            ? HOUSE_LIST.filter((h) => p.houses.some((oh) => oh.type === h.id))
-            : HOUSE_LIST;
+        const list = houseMenu(p, state.input.subMode);
+        if (!list.length) return;
         state.input.index = ((state.input.index + dir) % list.length + list.length) % list.length;
-        showHouseOption(subMode, state.input.index);
+        showHouseOption(state.input.subMode, state.input.index);
     }
 
     function confirmHouseSelect() {
         const p           = activePlayer();
         if (!p) return;
         const { subMode } = state.input;
-        const list        = subMode === "sell"
-            ? HOUSE_LIST.filter((h) => p.houses.some((oh) => oh.type === h.id))
-            : HOUSE_LIST;
+        const list        = houseMenu(p, subMode);
         const house = list[state.input.index];
-        if (!house) { ledgerLog("⚠ House Select", `Invalid index ${state.input.index} (list has ${list.length} items) — subMode: ${subMode}`); return; }
+        if (!house) {
+            ledgerLog("⚠ House Select", `Invalid index ${state.input.index} of ${list.length} — menu cancelled`);
+            clearInput(); renderScreen(); playSound("error"); return;
+        }
+        clearInput();
         if (subMode === "buy") {
-            if (p.houses.some((oh) => oh.type === house.id)) {
-                setScreen("HOUSE", "Already owned", `You already have the ${house.name} · − to scroll`);
-                ledgerLog("⚠ Already Owned", `${house.name} is already owned by ${p.name}`);
-                renderScreen(); playSound("error"); return;
-            }
-            clearInput();
             commit("Buy House", `Bought ${house.name} for ${formatMoney(house.cost)}`, () => {
                 const pl = activePlayer();
                 if (!pl) return;
@@ -1156,7 +1216,6 @@
             });
             playSound("buy");
         } else {
-            clearInput();
             sellHouse(house.id);
         }
     }
@@ -1209,6 +1268,15 @@
 
     function handlePodKey(key) {
         if (!state || isAnimating) return;
+
+        // While the lottery is waiting for a winner, only LOTTERY (re-roll) is
+        // allowed via the ring — anything else would clobber the pending claim.
+        if (state.input.mode === "lottery-pending" && key !== "lottery") {
+            setScreen("LOTTERY", "Claim first", "Tap the winning player · SPIN/LOTTERY re-rolls · UNDO cancels");
+            ledgerLog("⚠ Lottery", `"${key}" ignored — resolve the lottery first`);
+            renderScreen(); playSound("error"); return;
+        }
+
         const needsPlayer = ["salary", "marriage", "house", "car", "baby"];
         if (!activePlayer() && needsPlayer.includes(key)) {
             setScreen("No card", "Tap your card first", "Insert a Visa card to use this function");
@@ -1245,10 +1313,35 @@
         if (!state) state = createGame({ years: 10, players: DEFAULT_PLAYERS });
         if (dom.playerCountSelect) dom.playerCountSelect.value = String(state.players.length);
         renderStatus();
+        renderPlayerSwitch();
         renderPlayers();
         renderLedger();
         renderScreen();
         renderFinalResults();
+    }
+
+    function renderPlayerSwitch() {
+        if (!dom.playerSwitch) return;
+        const claiming = state.input.mode === "lottery-pending";
+        dom.playerSwitch.classList.toggle("is-claiming", claiming);
+        const cur = activePlayer();
+        const hint = claiming
+            ? `<span class="pswitch-hint">🎟 Tap the winning player</span>`
+            : "";
+        dom.playerSwitch.innerHTML = hint + state.players.map((p, i) => {
+            const color    = VISA_COLORS.find((c) => c.id === p.color);
+            const isActive = !claiming && cur && p.id === cur.id;
+            const first    = escapeHtml(p.name.split(" ")[0] || p.name);
+            const num      = p.name.match(/\d+/)?.[0] || (i + 1);
+            return `
+                <button class="pswitch${isActive ? " is-active" : ""}" data-player-index="${i}"
+                        style="--card-color: ${color ? color.hex : "#888"}" type="button"
+                        aria-label="Switch to ${escapeHtml(p.name)}"${isActive ? ' aria-current="true"' : ""}>
+                    <span class="pswitch-dot"></span>
+                    <span class="pswitch-name">P${num}</span>
+                    <span class="pswitch-cash">${formatMoney(p.money)}</span>
+                </button>`;
+        }).join("");
     }
 
     function renderStatus() {
@@ -1377,7 +1470,8 @@
         }).join("");
     }
 
-    function ledgerLog(action, detail) {
+    // isError true → red warning row; false → a plain info/debug row.
+    function ledgerLog(action, detail, isError = true) {
         if (!state) return;
         state.ledger.unshift({
             id:       cryptoId(),
@@ -1387,11 +1481,13 @@
             detail,
             before:   null,
             after:    null,
-            isError:  true
+            isError
         });
         if (state.ledger.length > 60) state.ledger.length = 60;
         renderLedger();
     }
+    // Convenience: a non-error debug/info breadcrumb in the ledger.
+    function logInfo(action, detail) { ledgerLog(action, detail, false); }
 
     function ledgerDelta(b, a) {
         return [
@@ -1519,30 +1615,11 @@
                 return;
             }
 
-            // Visa card tap: switch active player (ends previous player's turn)
+            // Visa card OR switcher chip tap → select that player (ends prev turn,
+            // or claims the lottery). Both carry data-player-index.
             const playerCard = e.target.closest("[data-player-index]");
-            if (playerCard && state && !isAnimating) {
-                const idx = Number(playerCard.dataset.playerIndex);
-                // Lottery: whoever taps first claims the pot
-                if (state.input.mode === "lottery-pending") {
-                    awardLottery(idx);
-                    return;
-                }
-                clearLitButtons();
-                state.activePlayerIndex = idx;
-                clearInput();
-                setScreen("Card", state.players[idx].name, "Press SPIN to start turn");
-                saveState();
-                render();
-                dom.cardSlot.classList.remove("is-inserting");
-                void dom.cardSlot.offsetWidth;
-                dom.cardSlot.classList.add("is-inserting");
-                playSound("card-insert");
-
-                // Finals: first card insertion after game ends triggers immediately (or auto fires 2.5s after last spin)
-                if (state.yearsLeft === 0 && !state.finalCalculated) {
-                    setTimeout(() => { showFinalDialog(); }, 900);
-                }
+            if (playerCard) {
+                switchToPlayer(Number(playerCard.dataset.playerIndex));
             }
         });
 
