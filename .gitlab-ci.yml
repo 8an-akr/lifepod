@@ -1,0 +1,60 @@
+# GitLab CI/CD — builds the offline LIFEpod Android APK with Capacitor.
+#
+# Runs on GitLab's shared Docker runners (no Android tools needed on your PC).
+# On the first run it downloads the Android SDK (cached afterwards), bundles the
+# web app with Capacitor, and compiles a debug APK. Download the finished
+# app-debug.apk from the pipeline's job → "Artifacts".
+#
+# Trigger it from the GitLab UI (Build ▸ Pipelines ▸ "Run pipeline") or by
+# pushing to your default branch.
+
+stages:
+  - build
+
+build_apk:
+  stage: build
+  image: node:20-bookworm
+  variables:
+    ANDROID_HOME: "$CI_PROJECT_DIR/.android-sdk"
+    ANDROID_SDK_ROOT: "$CI_PROJECT_DIR/.android-sdk"
+    GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+    JAVA_HOME: "/usr/lib/jvm/java-17-openjdk-amd64"
+  cache:
+    key: lifepod-android
+    paths:
+      - .android-sdk/
+      - .gradle/
+      - lifepod_js/node_modules/
+  before_script:
+    # JDK 17 + unzip (Node, curl and git are already in the base image)
+    - apt-get update -qq && apt-get install -y -qq openjdk-17-jdk-headless unzip > /dev/null
+    - export PATH="$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
+    # Install the Android command-line tools + SDK packages once, then reuse the cache
+    - |
+      if [ ! -d "$ANDROID_HOME/cmdline-tools/latest" ]; then
+        echo "Installing Android SDK…"
+        mkdir -p "$ANDROID_HOME/cmdline-tools"
+        curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o /tmp/cmdtools.zip
+        unzip -q /tmp/cmdtools.zip -d "$ANDROID_HOME/cmdline-tools"
+        mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+        yes | sdkmanager --licenses > /dev/null
+        sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" > /dev/null
+      fi
+  script:
+    - cd lifepod_js
+    - npm install
+    - npm run prepare:www
+    - '[ -d android ] || npx cap add android'
+    - echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+    - npm run icons || echo "icon generation skipped — using default icon"
+    - npx cap sync android
+    - cd android
+    - ./gradlew assembleDebug --no-daemon
+  artifacts:
+    name: "lifepod-debug-apk"
+    paths:
+      - lifepod_js/android/app/build/outputs/apk/debug/app-debug.apk
+    expire_in: 30 days
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web"'        # manual "Run pipeline" button
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'  # every push to the default branch

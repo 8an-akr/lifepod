@@ -17,6 +17,26 @@ in the cloud by GitHub Actions.
 3. Wait for the green check (~3–5 min), open the run, and download the
    **`lifepod-debug-apk`** artifact. Inside is `app-debug.apk`.
 
+## Get an APK on GitLab instead
+
+The repo also ships a GitLab pipeline (`.gitlab-ci.yml` at the repo root) that
+does the same build on GitLab's runners.
+
+1. Put the project on GitLab — either import it (GitLab ▸ **New project ▸
+   Import ▸ GitHub**) or add a remote and push:
+   ```bash
+   git remote add gitlab https://gitlab.com/<your-username>/lifepod.git
+   git push gitlab main
+   ```
+2. In the GitLab project, go to **Build ▸ Pipelines** and click **Run pipeline**
+   (it also runs on every push to the default branch).
+3. When the `build_apk` job finishes (first run is slower — it downloads the
+   Android SDK, then caches it), open the job and download
+   **app-debug.apk** from the right-hand **Job artifacts** panel.
+
+> The first build can take ~10–15 min and uses your GitLab CI minutes; later
+> builds are faster thanks to the cached SDK and `node_modules`.
+
 ## Install it on your phone
 
 1. Copy `app-debug.apk` to the phone (USB, Drive, email to yourself, etc.).
