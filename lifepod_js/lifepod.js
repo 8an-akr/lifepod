@@ -328,9 +328,15 @@
         s.input    ??= { mode: "ready", sign: 1, buffer: "", subMode: null, index: 0 };
         s.input.subMode ??= null;
         s.input.index   ??= 0;
+        s.screen   ??= { mode: "Ready", value: "", hint: "Tap a Visa card then press SPIN" };
+        s.ledger   ??= [];
+        s.undoStack ??= [];
         s.players?.forEach((p, i) => {
             p.id             ??= cryptoId();
             p.order          ??= i + 1;
+            p.color          ??= VISA_COLORS[i % 4].id;
+            p.colorName      ??= VISA_COLORS[i % 4].name;
+            p.card           ??= VISA_COLORS[i % 4].card;
             p.cars           ??= [];
             p.houses         ??= [];
             p.children       ??= 0;
@@ -341,6 +347,8 @@
             p.married        ??= false;
             p.degree         ??= false;
             p.phd            ??= false;
+            p.cars.forEach((c)   => { c.id ??= cryptoId(); c.yearsOld   ??= 0; });
+            p.houses.forEach((h) => { h.id ??= cryptoId(); h.yearsOwned ??= 0; });
         });
         return s;
     }
@@ -415,7 +423,7 @@
     // Cancel selection modes (car/house/baby/lottery) without undoing game state.
     // Normal undo pops the undo stack.
     function handleUndo() {
-        if (!state) return;
+        if (!state || isAnimating) return;
         clearLitButtons();
         const selModes = ["car-select","house-select","car-buyorsell","house-buyorsell","lottery-pending"];
         if (selModes.includes(state.input.mode)) {
@@ -1236,10 +1244,10 @@
 
     function ledgerDelta(b, a) {
         return [
-            `Money ${formatMoney(b.money)} → ${formatMoney(a.money)}`,
-            `LIFE ${formatNumber(b.lifePoints)} → ${formatNumber(a.lifePoints)}`,
-            `Salary ${formatMoney(b.salary)} → ${formatMoney(a.salary)}`
-        ].join(" | ");
+            b.money      !== a.money      ? `Money ${formatMoney(b.money)} → ${formatMoney(a.money)}`             : null,
+            b.lifePoints !== a.lifePoints ? `LIFE ${formatNumber(b.lifePoints)} → ${formatNumber(a.lifePoints)}` : null,
+            b.salary     !== a.salary     ? `Salary ${formatMoney(b.salary)} → ${formatMoney(a.salary)}`         : null
+        ].filter(Boolean).join(" | ") || "No change";
     }
 
     function renderFinalResults() {
@@ -1322,6 +1330,7 @@
 
     function bindEvents() {
         dom.resetButton.addEventListener("click", () => {
+            if (isAnimating) return;
             const count = Math.max(2, Math.min(4, Number(dom.playerCountSelect.value) || 4));
             showConfirm(`Reset and start a new ${count}-player game?`, () => {
                 state = createGame({ years: 10, players: DEFAULT_PLAYERS.slice(0, count) });
@@ -1405,6 +1414,7 @@
         });
 
         dom.playerCountSelect.addEventListener("change", () => {
+            if (isAnimating) { dom.playerCountSelect.value = String(state.players.length); return; }
             const count = Math.max(2, Math.min(4, Number(dom.playerCountSelect.value) || 4));
             showConfirm(`Start a new ${count}-player game? Current game will be lost.`, () => {
                 state = createGame({ years: 10, players: DEFAULT_PLAYERS.slice(0, count) });
