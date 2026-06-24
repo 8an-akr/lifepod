@@ -118,7 +118,15 @@
             "Marriage": "נישואין", "Anniversary": "יום נישואין", "Baby": "תינוק", "Twins": "תאומים",
             "Lottery": "הגרלה", "WINNER": "מנצח!", "GAME OVER": "המשחק נגמר", "Game over": "המשחק נגמר",
             "Sound": "שמע", "Undo": "ביטול", "Years": "שנים", "Number": "מספר", "Enter": "הזנה",
-            "Saved": "נשמר", "Volume": "עוצמה", "Spin": "סיבוב", "Chance": "מזל", "Marriage / Anniversary": "נישואין",
+            "Saved": "נשמר", "Volume": "עוצמה", "Spin": "סיבוב", "Chance": "מזל",
+            // Ledger action labels
+            "Buy House": "קניית בית", "Sell House": "מכירת בית", "Buy Car": "קניית רכב", "Sell Car": "מכירת רכב",
+            "Lottery Win": "זכייה בהגרלה", "Lottery Pot": "קופת הגרלה", "Final Scoring": "ניקוד סופי",
+            "Year": "שנה", "House": "בית", "Car": "רכב",
+            "⚠ No Card": "⚠ אין כרטיס", "⚠ Lottery": "⚠ הגרלה", "⚠ Input": "⚠ קלט",
+            "⚠ Car": "⚠ רכב", "⚠ House": "⚠ בית", "⚠ Baby": "⚠ תינוק", "⚠ Switch": "⚠ החלפה",
+            "⚠ Game Over": "⚠ המשחק נגמר", "⚠ Already Owned": "⚠ כבר בבעלות",
+            "⚠ Crash": "⚠ קריסה", "⚠ Storage": "⚠ אחסון", "⚠ Spin Error": "⚠ שגיאת סיבוב",
             // Common hints
             "Press SPIN to start turn": "לחץ סיבוב להתחלת התור",
             "Press SPIN to start your turn": "לחץ סיבוב להתחלת התור",
@@ -168,7 +176,13 @@
             ["Money ", "כסף "], ["Salary ", "משכורת "], [" LIFE", " חיים"],
             ["Red", "אדום"], ["Blue", "כחול"], ["Green", "ירוק"], ["Yellow", "צהוב"],
             ["children", "ילדים"], ["child", "ילד"], ["years left", "שנים נותרו"],
-            ["Round complete", "הסיבוב הושלם"], ["won!", "זכה!"]
+            ["Round complete", "הסיבוב הושלם"], ["won!", "זכה!"],
+            ["Reset and start a new ", "איפוס והתחלת משחק חדש בן "],
+            ["Start a new ", "התחלת משחק חדש בן "],
+            ["-player game?", " שחקנים?"],
+            ["Current game will be lost.", "המשחק הנוכחי יימחק."],
+            ["Spinning…", "מסתובב…"], ["Watch the wheel", "צפה בגלגל"],
+            ["tap the winner below", "הקש על הזוכה למטה"]
         ]
     };
 
@@ -184,12 +198,37 @@
         return out;
     }
 
+    // Small circular flag for the language button — the CURRENTLY selected
+    // language (English = St George's cross, Hebrew = Israel). Drawn as SVG
+    // because Windows renders flag emoji as bare letters ("GB"/"IL").
+    function flagSvg(lang) {
+        if (lang === "he") {
+            return `<svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect width="24" height="24" fill="#fff"/>
+                <rect y="4.2" width="24" height="2.4" fill="#0038b8"/>
+                <rect y="17.4" width="24" height="2.4" fill="#0038b8"/>
+                <g fill="none" stroke="#0038b8" stroke-width="1" stroke-linejoin="round">
+                    <path d="M12 8 15.1 13.6 8.9 13.6Z"/>
+                    <path d="M12 16 15.1 10.4 8.9 10.4Z"/>
+                </g>
+            </svg>`;
+        }
+        return `<svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect width="24" height="24" fill="#fff"/>
+            <rect x="9.6" width="4.8" height="24" fill="#ce1124"/>
+            <rect y="9.6" width="24" height="4.8" fill="#ce1124"/>
+        </svg>`;
+    }
+
     function applyLang() {
         const root = document.documentElement;
         root.lang = LANG;
         root.dir  = LANG === "he" ? "rtl" : "ltr";
         document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = tr(el.dataset.i18n); });
-        if (dom.langToggle) dom.langToggle.textContent = LANG === "he" ? "English" : "עברית";
+        if (dom.langToggle) {
+            dom.langToggle.innerHTML = flagSvg(LANG);
+            dom.langToggle.setAttribute("aria-label", LANG === "he" ? "Switch to English · החלף לאנגלית" : "Switch to Hebrew · החלף לעברית");
+        }
         createFunctionRing();
         syncVolumeIcon();
         render();
@@ -1038,12 +1077,12 @@
         const targetPos = SPIN_INDICES.indexOf(winning);
 
         // Eject card display immediately so nobody holds the device during the spin
-        dom.cardSlot.textContent = "LOTTERY";
+        dom.cardSlot.textContent = tr("LOTTERY");
         dom.cardSlot.style.removeProperty("--active-card-color");
-        dom.activeCard.textContent  = "Lottery";
-        dom.screenMode.textContent  = "LOTTERY";
-        dom.screenValue.textContent = "Spinning…";
-        dom.screenHint.textContent  = "Watch the wheel · tap the winner below";
+        dom.activeCard.textContent  = tr("Lottery");
+        dom.screenMode.textContent  = tr("LOTTERY");
+        dom.screenValue.textContent = tr("Spinning…");
+        dom.screenHint.textContent  = tr("Watch the wheel · tap the winner below");
         dom.lcdHouses.textContent = dom.lcdCars.textContent = dom.lcdBabies.textContent = "–";
         dom.lcdMoney.textContent  = dom.lcdLife.textContent = "–––––";
         dom.lcdMarried.classList.remove("is-on");
@@ -1704,7 +1743,7 @@
     // ─── In-window confirm dialog ─────────────────────────────────────────────
 
     function showConfirm(message, onYes, onNo = () => {}) {
-        dom.confirmMessage.textContent = message;
+        dom.confirmMessage.textContent = tr(message);
         dom.confirmDialog.showModal();
         dom.confirmYes.onclick = () => { dom.confirmDialog.close(); onYes(); };
         dom.confirmNo.onclick  = () => { dom.confirmDialog.close(); onNo(); };
